@@ -15,14 +15,15 @@
 // what the snapshot tells you. Do NOT read engine/ or bots/ source; that would not be a fair test.
 
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
-import { createWorld, GameSession, actions as A } from "../engine/index.js";
+import { createWorld, GameSession, decodeShareCode, actions as A } from "../engine/index.js";
 import { runConsole } from "../shared/console.js";
 
 const RULES = `WIAC — you are a scientist exploring an UNKNOWN world.
 - Substances have hidden compositions; you only ever see the numbers your instruments report.
 - measure <sub> <instrument>  reads an instrument (cheap, 1 XP; cached reads are free; "all" reads every instrument).
 - mix <a> <b> <λ>             blends two substances at ratio λ∈[0,1] → a NEW substance (expensive, 3 XP). Then measure it.
-- cook/refine <sub>           unary transforms (expensive, 3 XP), if available.
+- cook <sub> / refine <sub>   unary transforms (expensive, 3 XP), if available. Call by the op ID shown in the
+                              snapshot's ops list (always "cook"/"refine"); the theme only relabels them (e.g. anneal/rotate).
 - calc <expr>                 a numpy-style console over your measured data (free). Scope: M, subs, measures, col(name),
                               row(id), goal, pairs(a,b), design(features,target), loocv(features,target), predict(coef,xs);
                               np.mean/std/corr/polyfit/polyval/interp/lstsq/linspace/ones/zeros/column_stack.
@@ -35,13 +36,14 @@ const RULES = `WIAC — you are a scientist exploring an UNKNOWN world.
 - Some substances start already characterized (tag "known"). Think with cheap measurements; synthesize sparingly.`;
 
 function parse(argv) {
-  const a = { cmd: argv[0], save: "/tmp/wiac-agent-session.json", seed: 12345, difficulty: "normal", theme: "alchemy", pos: [] };
+  const a = { cmd: argv[0], save: "/tmp/wiac-agent-session.json", seed: 12345, difficulty: "normal", theme: "alchemy", code: null, pos: [] };
   for (let i = 1; i < argv.length; i++) {
     const k = argv[i];
     if (k === "--save") a.save = argv[++i];
     else if (k === "--seed") a.seed = +argv[++i];
     else if (k === "--difficulty" || k === "-d") a.difficulty = argv[++i];
     else if (k === "--theme" || k === "-t") a.theme = argv[++i];
+    else if (k === "--code" || k === "-c") a.code = argv[++i];
     else a.pos.push(k);
   }
   return a;
@@ -61,11 +63,12 @@ try {
   if (args.cmd === "help" || !args.cmd) { process.stdout.write(RULES + "\n"); process.exit(0); }
 
   if (args.cmd === "new") {
-    const world = createWorld({ seed: args.seed, difficulty: args.difficulty, theme: args.theme });
+    const opts = args.code ? decodeShareCode(args.code) : { seed: args.seed, difficulty: args.difficulty, theme: args.theme };
+    const world = createWorld(opts);
     const session = new GameSession(world);
     save(session, {});
     process.stdout.write(RULES + "\n\n");
-    out(session, { ok: true, message: `new ${args.difficulty} world, seed ${args.seed}` });
+    out(session, { ok: true, message: `new world (${args.code ? "code " + args.code : args.difficulty + " seed " + args.seed})` });
     process.exit(0);
   }
 
@@ -80,7 +83,12 @@ try {
       break;
     }
     case "mix": { const [a, b, l] = args.pos; const r = session.apply(A.mix(a, b, l != null ? +l : 0.5)); save(session, vars); out(session, { ok: r.ok !== false, result: r }); break; }
-    case "cook": { const [sub, op] = args.pos; const r = session.apply(A.cook(sub, op || "cook")); save(session, vars); out(session, { ok: r.ok !== false, result: r }); break; }
+    // unary ops are invoked by their op id (always "cook" or "refine"; the theme only relabels them):
+    //   cook <sub>   ·   refine <sub>   ·   or  cook <sub> <opId>
+    case "cook": case "refine": {
+      const opId = args.cmd === "refine" ? "refine" : (args.pos[1] || "cook");
+      const r = session.apply(A.cook(args.pos[0], opId)); save(session, vars); out(session, { ok: r.ok !== false, result: r }); break;
+    }
     case "submit": { const r = session.apply(A.submit(args.pos[0])); save(session, vars); out(session, { ok: r.ok !== false, result: r }); break; }
     case "calc": {
       const expr = args.pos.join(" ");

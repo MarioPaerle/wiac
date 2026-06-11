@@ -8,6 +8,12 @@
 function flat1(x) { return Array.isArray(x) ? x : [x]; }
 function nums(x) { return flat1(x).filter((v) => typeof v === "number" && Number.isFinite(v)); }
 const ew = (f) => (x) => (Array.isArray(x) ? x.map((v) => (typeof v === "number" ? f(v) : v)) : f(x));
+const binop = (a, b, f) => {
+  if (Array.isArray(a) && Array.isArray(b)) return a.map((v, i) => (v == null || b[i] == null ? null : f(v, b[i])));
+  if (Array.isArray(a)) return a.map((v) => (v == null ? null : f(v, b)));
+  if (Array.isArray(b)) return b.map((v) => (v == null ? null : f(a, v)));
+  return f(a, b);
+};
 
 // solve A x = b (square, Gaussian elimination)
 function gsolve(Ain, bin) {
@@ -52,6 +58,11 @@ const np = {
   ones: (n) => new Array(n).fill(1),
   zeros: (n) => new Array(n).fill(0),
   array: (x) => (Array.isArray(x) ? x.slice() : [x]),
+  // elementwise binary ops (array⊙array or array⊙scalar) — JS has no vectorized `-` on arrays
+  add: (a, b) => binop(a, b, (x, y) => x + y),
+  sub: (a, b) => binop(a, b, (x, y) => x - y),
+  mul: (a, b) => binop(a, b, (x, y) => x * y),
+  div: (a, b) => binop(a, b, (x, y) => x / y),
   // stack equal-length column arrays into rows: column_stack([[a,b],[c,d]]) -> [[a,c],[b,d]]
   column_stack: (cols) => cols[0].map((_, i) => cols.map((c) => c[i])),
 };

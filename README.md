@@ -40,12 +40,13 @@ find structure (free), **mix** substances toward the goal, **submit**. Beat the 
 ## How it works (one paragraph)
 
 A substance is a hidden vector `s = U·c` living in a low-rank subspace (`r ≪ n`) — that low rank
-*is* the discoverable structure. Measurements are linear functionals (with a monotone readout that
-hides the linearity), so blending two substances **interpolates** their measurements. The goal is
-generated as a convex combination of starting substances, so it's always reachable: a single-value
-target by **bisecting** a mix ratio (`O(log 1/ε)`), a two-value target by a convex-combination
-**solve**. A brute-force bot and a "researcher" bot run at generation to certify each world is
-winnable with `≪` the blind-search cost.
+*is* the discoverable structure. Measurements are **quadratic** in the latent code (with a monotone
+readout), so along a blend path `a→b` the measured value traces a **curve** — often non-monotone.
+That means you **cannot** just bisect: you sample a few points, *fit the curve*, and solve for the
+mix ratio that hits the target. The goal is generated to sit on a real blend path and to be crossed
+by several base pairs, so a curve-fitting "researcher" bot always wins — and certifies, alongside a
+brute-force bot, that every world is winnable with `≪` the blind-search cost. The `trend` tool
+(CLI + web) draws your measured points and the fitted parabola and tells you where it crosses the goal.
 
 ## Layout
 
@@ -65,5 +66,7 @@ The engine never leaks hidden vectors: UIs only ever see a redacted `snapshot()`
 
 ## Difficulty
 
-`tutorial` (n6/r2, blend only, 1 goal) · `normal` (n12/r4, +cook, monotone readout) ·
-`hard` (n24/r6, +refine, **2 coupled goals**). Worlds are shareable by a short seed code.
+Difficulty = how hidden the structure is + how **curved** the response is.
+`tutorial` (n6/r2, blend only) · `normal` (n10/r3, +cook, more curvature) ·
+`hard` (n16/r4, +refine, strongest curvature, bigger world). Tolerance is **loose** (you model the
+curve, you don't grind bisection); the goal path is always non-monotone. Worlds share via a seed code.

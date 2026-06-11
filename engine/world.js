@@ -6,16 +6,15 @@ import { DIFFICULTIES } from "./difficulty.js";
 import { linearKernel } from "./kernel/linear-kernel.js";
 import { validateKernel } from "./kernel/kernel-interface.js";
 import { encodeShareCode } from "./seedcode.js";
-import { dot, singularValues } from "./linalg.js";
+import { singularValues } from "./linalg.js";
 import { getTheme } from "../themes/registry.js";
 
 // Light, dependency-free validation run at generation time (the heavy bot-based
 // playability gate lives in bots/validate-world.js to avoid a circular import).
 function validate(gen, params) {
   if (!gen.goal || gen.goal._failed || gen.goal.constraints.length === 0) return false;
-  // identifiability: rank(W·U) must equal r (otherwise the world is under-determined)
-  const { Ucols } = gen.hidden;
-  const M = gen.measures.map((m) => Ucols.map((col) => dot(m.w, col))); // m × r
+  // identifiability: the linear parts of the measures must span the r-dim latent space
+  const M = gen.measures.map((m) => m.a); // m × r (latent linear parts)
   if (M.length < params.r) return false;
   const sv = singularValues(M);
   if (!(sv[params.r - 1] / (sv[0] || 1) > 1e-3)) return false;

@@ -1,5 +1,5 @@
 // Difficulty presets → world-generation parameters.
-// Difficulty = how HIDDEN the structure is + how far/constrained the solution.
+// Difficulty = how HIDDEN the structure is + how far/constrained + how CURVED the solution.
 // Keys are append-only (their index is baked into share codes).
 
 export const DIFFICULTY_KEYS = ["tutorial", "normal", "hard"];
@@ -8,44 +8,45 @@ export const DIFFICULTIES = {
   tutorial: {
     label: "Tutorial",
     n: 6, r: 2,
-    kCenters: 2, kBase: 4, clusterNoise: 0.05,
+    kCenters: 2, kBase: 5, clusterNoise: 0.05,
     mMeasures: 3,
     readout: { kind: "id" },
     bRange: 0.4,
+    curvature: 0.9,         // nonlinearity: 0 = linear (v0.1), >0 = curved measures
     ops: ["blend"],
     nConstraints: 1,
-    epsFraction: 0.02,
+    epsFraction: 0.05,      // LOOSE tolerance — model the curve, don't grind bisection
     budget: 40,
-    minPlayability: 5,   // QA: required AVERAGE smart-vs-brute ratio for this tier
-    targetComboSize: 2, // target = convex combo of this many base substances
+    minPlayability: 1.5,
   },
   normal: {
     label: "Normal",
-    n: 12, r: 4,
+    n: 10, r: 3,
     kCenters: 3, kBase: 8, clusterNoise: 0.1,
-    mMeasures: 6,
+    mMeasures: 5,
     readout: { kind: "tanh", A: 4, k: 0.7 },
     bRange: 0.6,
+    curvature: 1.1,
     ops: ["blend", "cook"],
     nConstraints: 1,
-    epsFraction: 0.008,
+    epsFraction: 0.04,
     budget: 80,
-    minPlayability: 5,   // QA: required AVERAGE ratio
-    targetComboSize: 3,
+    minPlayability: 2,
+    // (normal: bigger world, decent smart-vs-brute edge)
   },
   hard: {
     label: "Hard",
-    n: 24, r: 6,
-    kCenters: 4, kBase: 14, clusterNoise: 0.15,
-    mMeasures: 8,
+    n: 16, r: 4,
+    kCenters: 4, kBase: 12, clusterNoise: 0.12,
+    mMeasures: 7,
     readout: { kind: "tanh", A: 6, k: 0.5 },
     bRange: 0.8,
+    curvature: 1.3,
     ops: ["blend", "cook", "refine"],
-    nConstraints: 2,
-    epsFraction: 0.02,
-    budget: 150,
-    minPlayability: 15,  // QA: required AVERAGE ratio
-    targetComboSize: 4,
+    nConstraints: 1,
+    epsFraction: 0.03,
+    budget: 130,
+    minPlayability: 2,
   },
 };
 

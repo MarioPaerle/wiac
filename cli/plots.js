@@ -35,18 +35,20 @@ export function scatter(points, { width = 54, height = 15, xlabel = "x", ylabel 
   return lines.join("\n");
 }
 
-// samples: [{lambda, value}] sorted by lambda; goalLine: target value
-export function trend(samples, { goalLine = null, width = 44, height = 11, ylabel = "value", endpoints = [] } = {}) {
-  if (samples.length === 0) return "  (no samples)";
-  const ys = samples.map((s) => s.value).concat(goalLine != null ? [goalLine] : []);
+// points: real measured [{lambda, value}]; curve: optional fitted {A2,A1,A0} drawn as a line.
+export function trend(points, { goalLine = null, curve = null, width = 44, height = 11, ylabel = "value", endpoints = [] } = {}) {
+  if (points.length === 0 && !curve) return "  (no samples yet — mix a, b at a few λ and measure to reveal the curve)";
+  const curveYs = curve ? Array.from({ length: width }, (_, c) => { const l = c / (width - 1); return curve.A2 * l * l + curve.A1 * l + curve.A0; }) : [];
+  const ys = points.map((s) => s.value).concat(curveYs, goalLine != null ? [goalLine] : []);
   let ymin = Math.min(...ys), ymax = Math.max(...ys);
   const pad = (ymax - ymin || 1) * 0.1; ymin -= pad; ymax += pad;
   const row = (y) => Math.round((1 - (y - ymin) / (ymax - ymin)) * (height - 1));
-  const col = (l) => Math.round(l * (width - 1)); // lambda 0..1
+  const col = (l) => Math.round(l * (width - 1));
   const grid = Array.from({ length: height }, () => new Array(width).fill(" "));
-  if (goalLine != null) { const rr = row(goalLine); for (let c = 0; c < width; c++) grid[rr][c] = "┄"; }
-  for (const s of samples) { const r = row(s.value), c = col(s.lambda); if (r >= 0 && r < height && c >= 0 && c < width) grid[r][c] = "●"; }
-  const lines = [`  ${ylabel}   (── goal)`];
+  if (goalLine != null) { const rr = row(goalLine); if (rr >= 0 && rr < height) for (let c = 0; c < width; c++) grid[rr][c] = "┄"; }
+  if (curve) for (let c = 0; c < width; c++) { const r = row(curveYs[c]); if (r >= 0 && r < height) grid[r][c] = grid[r][c] === "┄" ? "┿" : "·"; }
+  for (const s of points) { const r = row(s.value), c = col(s.lambda); if (r >= 0 && r < height && c >= 0 && c < width) grid[r][c] = "●"; }
+  const lines = [`  ${ylabel}   (── goal,  ·· fitted curve,  ● measured)`];
   for (let r = 0; r < height; r++) {
     const tick = r === 0 ? fmt(ymax) : r === height - 1 ? fmt(ymin) : "      ";
     lines.push(`${tick} │${grid[r].join("")}`);

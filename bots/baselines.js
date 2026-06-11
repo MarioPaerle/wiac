@@ -24,10 +24,11 @@ export function computeBaselines(world, { bruteBudget = 5000 } = {}) {
   };
 }
 
-// Player score in [0,1000]: 0 ≈ no better than blind brute force, 1000 ≈ theoretical optimum.
+// Player score in [0,1000], anchored on the RESEARCHER bot (stable) with the optimum as ceiling:
+// matching the researcher ≈ 700, beating it → up to 1000, much worse → toward 0.
 export function scoreRun(xpUsed, baselines) {
-  const { bruteCost, thetaMin } = baselines;
-  const span = Math.max(1, bruteCost - thetaMin);
-  const frac = Math.max(0, Math.min(1, (bruteCost - xpUsed) / span));
-  return Math.round(frac * 1000);
+  if (xpUsed <= 0) return 1000;
+  if (xpUsed <= baselines.thetaMin) return 1000;
+  const ref = Number.isFinite(baselines.smartCost) && baselines.smartCost > 0 ? baselines.smartCost : baselines.bruteCost;
+  return Math.max(0, Math.min(1000, Math.round((700 * ref) / xpUsed)));
 }

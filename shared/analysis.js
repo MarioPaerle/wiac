@@ -86,6 +86,46 @@ export function kmeans(Z, k, iters = 30) {
   return { assign, centroids };
 }
 
+// Least-squares quadratic fit y ≈ A2·x² + A1·x + A0 over points [{x,y}] (needs ≥3 distinct x).
+export function fitQuad(points) {
+  const xs = new Set(points.map((p) => +p.x.toFixed(6)));
+  if (points.length < 3 || xs.size < 3) return null;
+  // normal equations for [x², x, 1]
+  let Sxx4 = 0, Sxx3 = 0, Sxx2 = 0, Sx = 0, S0 = 0, Tx2 = 0, Tx = 0, T = 0;
+  for (const { x, y } of points) {
+    const x2 = x * x;
+    Sxx4 += x2 * x2; Sxx3 += x2 * x; Sxx2 += x2; Sx += x; S0 += 1;
+    Tx2 += y * x2; Tx += y * x; T += y;
+  }
+  const M = [[Sxx4, Sxx3, Sxx2], [Sxx3, Sxx2, Sx], [Sxx2, Sx, S0]];
+  const sol = solveLinear(M, [Tx2, Tx, T]);
+  return sol ? { A2: sol[0], A1: sol[1], A0: sol[2] } : null;
+}
+
+// roots of A2·x²+A1·x+(A0−T) within [0,1]
+export function quadRootsInUnit(A2, A1, A0, T) {
+  const c0 = A0 - T, out = [];
+  if (Math.abs(A2) < 1e-9) { if (Math.abs(A1) > 1e-12) { const x = -c0 / A1; if (x >= 0 && x <= 1) out.push(x); } return out; }
+  const disc = A1 * A1 - 4 * A2 * c0;
+  if (disc < 0) return out;
+  const sq = Math.sqrt(disc);
+  for (const x of [(-A1 + sq) / (2 * A2), (-A1 - sq) / (2 * A2)]) if (x >= -1e-9 && x <= 1 + 1e-9) out.push(Math.max(0, Math.min(1, x)));
+  return out;
+}
+
+// tiny Gaussian-elimination solve (kept local so analysis stays engine-independent)
+function solveLinear(Ain, bin) {
+  const n = Ain.length, A = Ain.map((row, i) => [...row, bin[i]]);
+  for (let col = 0; col < n; col++) {
+    let piv = col;
+    for (let r = col + 1; r < n; r++) if (Math.abs(A[r][col]) > Math.abs(A[piv][col])) piv = r;
+    if (Math.abs(A[piv][col]) < 1e-12) return null;
+    [A[col], A[piv]] = [A[piv], A[col]];
+    for (let r = 0; r < n; r++) { if (r === col) continue; const f = A[r][col] / A[col][col]; for (let c = col; c <= n; c++) A[r][c] -= f * A[col][c]; }
+  }
+  return A.map((row, i) => row[n] / row[i]);
+}
+
 // Euclidean distance between two substances in standardized known-measure space.
 export function substanceDistance(snapshot, idA, idB) {
   const ms = snapshot.measures.map((m) => m.id).filter((m) => {

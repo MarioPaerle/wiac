@@ -9,7 +9,7 @@ import { createWorld, GameSession, decodeShareCode, actions as A, listThemes, DI
 import { computeBaselines, scoreRun } from "../bots/baselines.js";
 import * as R from "./render.js";
 import * as P from "./plots.js";
-import { collectMatrix, standardize, correlationMatrix, kmeans, substanceDistance } from "../shared/analysis.js";
+import { collectMatrix, standardize, correlationMatrix, kmeans, substanceDistance, fitQuad, quadRootsInUnit } from "../shared/analysis.js";
 import { saveRun, loadRun, listRuns } from "./storage.js";
 
 // ---- args ----
@@ -139,16 +139,25 @@ function cmdTrend(toks) {
   if (!a || !b || !m) return console.log(R.c.red("  ✗ usage: trend <a> <b> <instrument>"));
   const snap = session.snapshot();
   const sa = snap.substances.find((s) => s.id === a), sb = snap.substances.find((s) => s.id === b);
-  if (sa.measurements[m] == null || sb.measurements[m] == null)
-    return console.log(R.c.yellow(`  measure ${m} on both ${a} and ${b} first (predicted line uses the endpoints).`));
-  const va = sa.measurements[m], vb = sb.measurements[m];
-  const samples = Array.from({ length: 21 }, (_, i) => ({ lambda: i / 20, value: va + (vb - va) * (i / 20) }));
+  // gather REAL measured points along the a→b blend (endpoints + any mix(a,b,λ) you've measured)
+  const pts = [];
+  if (sa.measurements[m] != null) pts.push({ lambda: 0, value: sa.measurements[m] });
+  if (sb.measurements[m] != null) pts.push({ lambda: 1, value: sb.measurements[m] });
+  for (const s of snap.substances) {
+    if (s.origin.kind !== "mix" || s.measurements[m] == null) continue;
+    if (s.origin.a === a && s.origin.b === b) pts.push({ lambda: s.origin.lambda, value: s.measurements[m] });
+    else if (s.origin.a === b && s.origin.b === a) pts.push({ lambda: 1 - s.origin.lambda, value: s.measurements[m] });
+  }
+  const curve = fitQuad(pts.map((p) => ({ x: p.lambda, y: p.value })));
   const goalLine = snap.goal.constraints.find((c) => c.measureId === m)?.target ?? null;
-  console.log(P.trend(samples, { goalLine, ylabel: measureLabel(m) + " (predicted)", endpoints: [a, b] }));
-  if (goalLine != null && ((va <= goalLine && goalLine <= vb) || (vb <= goalLine && goalLine <= va))) {
-    const lam = (goalLine - va) / (vb - va);
-    console.log(R.c.green(`  ✓ ${a}–${b} bracket the goal — crossing near λ≈${lam.toFixed(2)}.  Try: mix ${a} ${b} ${lam.toFixed(2)}`));
-  } else if (goalLine != null) console.log(R.c.dim("  these two do not bracket the goal on this instrument."));
+  console.log(P.trend(pts, { goalLine, curve, ylabel: measureLabel(m), endpoints: [a, b] }));
+  if (pts.length < 3) {
+    console.log(R.c.yellow(`  only ${pts.length} point(s) on this path — the response is NON-LINEAR, so sample more: mix ${a} ${b} 0.5 (then measure) to fit the curve.`));
+  } else if (curve && goalLine != null) {
+    const roots = quadRootsInUnit(curve.A2, curve.A1, curve.A0, goalLine);
+    if (roots.length) console.log(R.c.green(`  fitted curve crosses the goal at λ≈${roots.map((r) => r.toFixed(2)).join(" and ")}.  Try: mix ${a} ${b} ${roots[0].toFixed(2)}`));
+    else console.log(R.c.dim("  the fitted curve does not reach the goal on this path — try another pair."));
+  }
 }
 
 function cmdHist(toks) {

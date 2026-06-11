@@ -1,7 +1,7 @@
 // WIAC web lens — thin client over the same engine the CLI uses.
 import { createWorld, GameSession, decodeShareCode, actions as A, listThemes, DIFFICULTY_KEYS, DIFFICULTIES } from "../engine/index.js";
 import { computeBaselines, scoreRun } from "../bots/baselines.js";
-import { collectMatrix, standardize, correlationMatrix, kmeans } from "../shared/analysis.js";
+import { collectMatrix, standardize, correlationMatrix, kmeans, fitQuad, quadRootsInUnit } from "../shared/analysis.js";
 import { scatterSVG, heatmapSVG, trendSVG } from "./plots.js";
 
 const GLYPHS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
@@ -125,19 +125,28 @@ function renderViz(snap) {
   } else if (state.tab === "trend") {
     const a = state.trendA, b = state.trendB, m = state.trendM;
     const sa = snap.substances.find((s) => s.id === a), sb = snap.substances.find((s) => s.id === b);
-    let samples = [], bracket = "";
-    if (sa && sb && sa.measurements[m] != null && sb.measurements[m] != null) {
-      const va = sa.measurements[m], vb = sb.measurements[m];
-      samples = Array.from({ length: 21 }, (_, i) => ({ lambda: i / 20, value: va + (vb - va) * (i / 20) }));
-      const goal = snap.goal.constraints.find((c) => c.measureId === m)?.target ?? null;
-      if (goal != null && ((va <= goal && goal <= vb) || (vb <= goal && goal <= va))) {
-        const lam = (goal - va) / (vb - va);
-        bracket = `<div class="flag" style="color:var(--good)">✓ ${a}–${b} bracket the goal — crossing at λ≈${lam.toFixed(2)}. Set λ and blend.</div>`;
+    let pts = [], hint = "";
+    if (sa && sb) {
+      if (sa.measurements[m] != null) pts.push({ lambda: 0, value: sa.measurements[m] });
+      if (sb.measurements[m] != null) pts.push({ lambda: 1, value: sb.measurements[m] });
+      for (const s of snap.substances) {
+        if (s.origin.kind !== "mix" || s.measurements[m] == null) continue;
+        if (s.origin.a === a && s.origin.b === b) pts.push({ lambda: s.origin.lambda, value: s.measurements[m] });
+        else if (s.origin.a === b && s.origin.b === a) pts.push({ lambda: 1 - s.origin.lambda, value: s.measurements[m] });
       }
+    }
+    const curve = fitQuad(pts.map((p) => ({ x: p.lambda, y: p.value })));
+    const goal = snap.goal.constraints.find((c) => c.measureId === m)?.target ?? null;
+    if (a && b && pts.length < 3) hint = `<div class="flag">The response is NON-LINEAR — sample more points: blend ${a},${b} at a few λ and measure to fit the curve.</div>`;
+    else if (curve && goal != null) {
+      const roots = quadRootsInUnit(curve.A2, curve.A1, curve.A0, goal);
+      hint = roots.length
+        ? `<div class="flag" style="color:var(--good)">✓ fitted curve crosses the goal at λ≈${roots.map((r) => r.toFixed(2)).join(" and ")}. Set λ and blend ${a},${b}.</div>`
+        : `<div class="flag">curve doesn't reach the goal on this path — try another pair.</div>`;
     }
     const subSel = (cur, attr) => `<select data-trend="${attr}"><option value="">—</option>` + snap.substances.map((s) => `<option value="${s.id}" ${cur === s.id ? "selected" : ""}>${s.id}</option>`).join("") + `</select>`;
     body = `<div class="controls-row">a ${subSel(a, "a")} b ${subSel(b, "b")} on ${msel(m, "tm")}</div>` +
-      trendSVG(samples, { goal: snap.goal.constraints.find((c) => c.measureId === m)?.target ?? null, ylabel: mlabel(snap, m), endpoints: [a, b] }) + bracket;
+      trendSVG(pts, { goal, curve, ylabel: mlabel(snap, m), endpoints: [a, b] }) + hint;
   }
   $("viz").innerHTML = `<div class="tabs">${tabBtn("scatter", "Scatter")}${tabBtn("corr", "Correlation")}${tabBtn("trend", "Trend / bracket")}</div>${body}`;
 }

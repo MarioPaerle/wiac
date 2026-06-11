@@ -38,7 +38,7 @@ export function briefing(snapshot, baselines) {
   L.push(`  STARTING ${t.substanceWord.toUpperCase()}S: ${snapshot.substances.length}  ·  BUDGET: ${c.green(snapshot.budget.max + " XP")}`);
   L.push(c.dim(`  HIDDEN: compositions, how many "families" exist, which instruments are redundant — discover them.`));
   if (baselines) {
-    L.push(c.dim(`  Baselines →  brute-force ≈ ${baselines.bruteCost} XP   ·   smart researcher ≈ ${baselines.smartCost} XP`));
+    L.push(c.dim(`  Baselines →  brute-force ≈ ${baselines.bruteCost} XP   ·   algorithmic solver ≈ ${baselines.smartCost} XP`));
   }
   L.push(c.dim(`  Type 'help' for commands.  Analysis is free; acting costs XP.`));
   L.push(c.bold("╚" + "═".repeat(56) + "╝"));
@@ -100,7 +100,7 @@ export function endScreen(snapshot, baselines, score, ref) {
   L.push(`  Experiments used: ${c.bold(snapshot.budget.spent + " XP")}   ·   strikes: ${snapshot.strikes}`);
   if (baselines) {
     L.push(c.dim(`  Brute-force baseline ... ${String(baselines.bruteCost).padStart(5)} XP`));
-    L.push(c.dim(`  Smart researcher ....... ${String(baselines.smartCost).padStart(5)} XP`));
+    L.push(c.dim(`  Algorithmic solver .... ${String(baselines.smartCost).padStart(5)} XP`));
     L.push(c.dim(`  Theoretical optimum .... ${String(baselines.thetaMin).padStart(5)} XP`));
   }
   if (won) L.push(c.bold(`  SCORE: ${c.green(score)} / 1000`));
@@ -113,7 +113,7 @@ export function endScreen(snapshot, baselines, score, ref) {
 
 export function helpText() {
   return [
-    c.bold("COMMANDS  ") + c.dim("(analysis is free; measure costs 1 XP/instrument, synth costs 2 XP)"),
+    c.bold("COMMANDS  ") + c.dim("(analysis is free; measure costs 1 XP/instrument, synth costs 3 XP)"),
     "  " + c.cyan("list [#tag]") + "             inventory table (· = unmeasured)",
     "  " + c.cyan("measure <id> [m|all]") + "    read an instrument on a substance",
     "  " + c.cyan("mix <a> <b> [λ]") + "         blend two substances (λ in 0..1, default 0.5)",
@@ -128,7 +128,7 @@ export function helpText() {
     "  " + c.cyan("dist <a> [b]") + "            similarity in measure-space",
     "  " + c.cyan("name <id> <label>") + "       rename · " + c.cyan("tag <id> <#t>") + " · " + c.cyan("note <text>") + " · " + c.cyan("hypo <text>"),
     "  " + c.cyan("inspect <id>") + " · " + c.cyan("goal") + " · " + c.cyan("notebook") + " · " + c.cyan("status"),
-    "  " + c.cyan("submit <id>") + "             propose a solution (wrong = +3 XP penalty)",
+    "  " + c.cyan("submit <id>") + "             propose a solution (wrong = +4 XP penalty)",
     "  " + c.cyan("save [slot]") + " · " + c.cyan("reveal") + " · " + c.cyan("help") + " · " + c.cyan("quit"),
   ].join("\n");
 }

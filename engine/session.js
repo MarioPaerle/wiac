@@ -27,6 +27,14 @@ export class GameSession {
       tags: [],
       known: {},
     }));
+
+    // prior knowledge: a few substances arrive already characterized (all instruments known, free)
+    const startKnown = Math.min(world.params.startKnown || 0, this.substances.length);
+    for (let i = 0; i < startKnown; i++) {
+      const s = this.substances[i];
+      for (const m of world.measures) s.known[m.id] = world.kernel.measure(world, s.vec, m.id);
+      s.tags.push("known");
+    }
   }
 
   // ---- introspection ----

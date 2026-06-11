@@ -64,7 +64,7 @@ function renderHud(snap) {
     <span class="bar"><i style="width:${(frac * 100).toFixed(0)}%"></i></span>
     <span class="dim">made ${made}</span><span class="dim">strikes ${snap.strikes}</span>
     <span class="dim">Δgoal ${delta}</span>
-    ${state.baselines ? `<span class="dim">· researcher baseline ≈ ${state.baselines.smartCost} XP, brute ≈ ${state.baselines.bruteCost} XP</span>` : ""}`;
+    ${state.baselines ? `<span class="dim">· algorithmic solver ≈ ${state.baselines.smartCost} XP, brute ≈ ${state.baselines.bruteCost} XP</span>` : ""}`;
 }
 
 function renderInventory(snap) {
@@ -207,7 +207,7 @@ function showEnd(snap) {
     <h2>${won ? "✓ Solved!" : "Out of budget"}</h2>
     ${won ? `<div class="score">${score}<span style="font-size:18px">/1000</span></div>` : ""}
     <div class="stat">Experiments used: ${snap.budget.spent} XP · strikes ${snap.strikes}</div>
-    ${state.baselines ? `<div class="stat">brute-force ${state.baselines.bruteCost} · researcher ${state.baselines.smartCost} · optimum ${state.baselines.thetaMin}</div>` : ""}
+    ${state.baselines ? `<div class="stat">brute-force ${state.baselines.bruteCost} · solver ${state.baselines.smartCost} · optimum ${state.baselines.thetaMin}</div>` : ""}
     <div class="stat" style="margin-top:6px">seed ${snap.shareCode}</div>
     <button class="primary" style="margin-top:16px" onclick="location.reload()">New world</button>
   </div>`;

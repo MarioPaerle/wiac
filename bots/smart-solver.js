@@ -27,7 +27,9 @@ export function smartSolve(world, { budget = 100000 } = {}) {
   const baseVal = {};
   for (const id of bases) baseVal[id] = readGoal(id);
 
-  // order pairs: straddling endpoints first (cheapest), then by how close an endpoint gets
+  // order pairs: straddling endpoints first (guaranteed bracket → cheap), then by how close an
+  // endpoint gets to the target (a robust, low-variance heuristic). NOTE: this is a competent but
+  // MECHANICAL baseline; it can probe many pairs on out-of-hull targets (see HANDOVER backlog #5).
   const pairs = [];
   for (let i = 0; i < bases.length; i++)
     for (let j = i + 1; j < bases.length; j++) {
@@ -47,17 +49,17 @@ export function smartSolve(world, { budget = 100000 } = {}) {
     }
     return null;
   };
+  const bracketsIn = (pts) => { const out = []; pts.sort((p, q) => p.t - q.t); for (let k = 1; k < pts.length; k++) if ((pts[k - 1].v - target) * (pts[k].v - target) <= 0) out.push({ lo: pts[k - 1].t, hi: pts[k].t, vlo: pts[k - 1].v }); return out; };
 
   for (const { a, b, straddle } of pairs.slice(0, PROBE_CAP)) {
-    // straddling endpoints already bracket the target → refine [0,1] directly (cheap)
-    const intervals = [];
-    if (straddle) intervals.push({ lo: 0, hi: 1, vlo: baseVal[a] });
+    let intervals = [];
+    if (straddle) intervals = [{ lo: 0, hi: 1, vlo: baseVal[a] }];
     else {
-      // an interior hump may cross the target: sample a coarse grid to find a bracket
+      // sample the generation-resolution grid (0.2..0.8) — guarantees catching the crossings the
+      // world was built to have; spread-desc ordering means we hit a crossing pair early.
       const pts = [{ t: 0, v: baseVal[a] }, { t: 1, v: baseVal[b] }];
-      for (const t of GRID) { const id = session.apply(A.mix(a, b, t)).newSubstanceId; pts.push({ t, v: readGoal(id) }); }
-      pts.sort((p, q) => p.t - q.t);
-      for (let k = 1; k < pts.length; k++) if ((pts[k - 1].v - target) * (pts[k].v - target) <= 0) intervals.push({ lo: pts[k - 1].t, hi: pts[k].t, vlo: pts[k - 1].v });
+      for (const t of GRID) pts.push({ t, v: readGoal(session.apply(A.mix(a, b, t)).newSubstanceId) });
+      intervals = bracketsIn(pts);
     }
     for (const iv of intervals) { const id = refine(a, b, iv.lo, iv.hi, iv.vlo); if (id) return { solved: true, experiments: session.budget.spent, finalId: id }; }
     if (session.budget.spent > budget) break;

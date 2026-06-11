@@ -1,7 +1,14 @@
 // Difficulty presets → world-generation parameters.
-// Difficulty = how hidden the structure is + how far/constrained + how NON-LINEAR the response +
-// (hard) how many instruments are unavailable and must be inferred.
-// Keys are append-only (their index is baked into share codes).
+// Difficulty = how hidden the structure is + how NON-LINEAR the response + (hard) how many
+// instruments must be inferred. Keys are append-only (their index is baked into share codes).
+//
+// Nonlinearity control (the explicit knobs Mario asked for):
+//   linScale         — weight of the LINEAR part of a measure (smaller ⇒ nonlinear term dominates)
+//   curvature        — amplitude of the nonlinear term (quad H / bump amp / satur amp)
+//   minNonlinearity  — a goal is rejected unless its blend path deviates ≥ this·range from the
+//                      straight endpoint line (so you can't reach it by eyeballing + interpolating)
+//   shapes           — allowed response shapes; goals avoid "quad" (the gentlest) when richer exist
+//   startKnown       — substances pre-characterized at t=0 (free prior knowledge / "literature")
 
 export const DIFFICULTY_KEYS = ["tutorial", "normal", "hard"];
 
@@ -13,14 +20,15 @@ export const DIFFICULTIES = {
     mMeasures: 3,
     readout: { kind: "id" },
     bRange: 0.4,
-    curvature: 0.9,
-    shapes: ["quad", "bump"],
-    minNonlinearity: 0.12,  // goal path must deviate ≥ this·range from the endpoint line
+    linScale: 0.55, curvature: 1.1,
+    shapes: ["bump", "satur", "quad"],
+    minNonlinearity: 0.30,
+    startKnown: 2,
     hiddenCount: 0,
     ops: ["blend"],
     nConstraints: 1,
     epsFraction: 0.06,
-    budget: 45,
+    budget: 90,
     minPlayability: 1.5,
   },
   normal: {
@@ -30,14 +38,15 @@ export const DIFFICULTIES = {
     mMeasures: 5,
     readout: { kind: "tanh", A: 4, k: 0.7 },
     bRange: 0.6,
-    curvature: 1.15,
+    linScale: 0.5, curvature: 1.3,
     shapes: ["bump", "satur", "quad"],
-    minNonlinearity: 0.22,  // strongly nonlinear → mental endpoint-interpolation fails
+    minNonlinearity: 0.45,
+    startKnown: 2,
     hiddenCount: 0,
     ops: ["blend", "cook"],
     nConstraints: 1,
     epsFraction: 0.05,
-    budget: 100,
+    budget: 170,
     minPlayability: 1.8,
   },
   hard: {
@@ -47,15 +56,16 @@ export const DIFFICULTIES = {
     mMeasures: 7,
     readout: { kind: "tanh", A: 6, k: 0.5 },
     bRange: 0.8,
-    curvature: 1.35,
+    linScale: 0.45, curvature: 1.5,
     shapes: ["bump", "satur"],
-    minNonlinearity: 0.28,
-    hiddenCount: 2,          // instruments you cannot run on your own syntheses → infer them
-    goalOnHidden: true,      // the goal is on a hidden instrument: predict it from the others
+    minNonlinearity: 0.55,
+    startKnown: 3,
+    hiddenCount: 2,
+    goalOnHidden: true,
     ops: ["blend", "cook", "refine"],
     nConstraints: 1,
     epsFraction: 0.045,
-    budget: 190,
+    budget: 280,
     minPlayability: 1.8,
   },
 };

@@ -52,7 +52,7 @@ export const linearKernel = {
   id: "smooth",
 
   generate(rng, params) {
-    const { n, r, kCenters, kBase, clusterNoise, mMeasures, readout, bRange, curvature, shapes } = params;
+    const { n, r, kCenters, kBase, clusterNoise, mMeasures, readout, bRange, curvature, shapes, linScale = 1 } = params;
     const Ucols = columnOrthonormal(n, r, rng);
 
     const centers = Array.from({ length: kCenters }, () => Array.from({ length: r }, () => rng.range(-1, 1)));
@@ -65,16 +65,15 @@ export const linearKernel = {
     const measures = [];
     for (let j = 0; j < mMeasures; j++) {
       const shape = rng.pick(shapes);
-      const m = { id: `m${j}`, a: normalize(gaussianVec(r, rng)), b: rng.range(-bRange, bRange), readout, shape, hidden: false };
+      // linear part is deliberately small (linScale) so the nonlinear term dominates the response
+      const m = { id: `m${j}`, a: scale(normalize(gaussianVec(r, rng)), linScale), b: rng.range(-bRange, bRange), readout, shape, hidden: false };
       if (shape === "quad") m.H = randomSymmetric(r, rng, curvature);
       else if (shape === "bump") {
-        m.a = scale(m.a, 0.6);
         m.center = Array.from({ length: r }, () => rng.range(-1.1, 1.1));
         const sigma = 0.55 + 0.25 * rng.next();
         m.invSig2 = 1 / (2 * sigma * sigma);
         m.amp = (rng.next() < 0.5 ? -1 : 1) * curvature * 2.2;
       } else { // satur
-        m.a = scale(m.a, 0.45);
         m.u = normalize(gaussianVec(r, rng));
         m.k = 1.4 + rng.next();
         m.amp = (rng.next() < 0.5 ? -1 : 1) * curvature * 2.4;
@@ -97,8 +96,10 @@ export const linearKernel = {
     const obs = (c, m) => applyReadout(m.readout, lin(m, c));
     const rangeOf = (m) => { const v = baseCodes.map((c) => obs(c, m)); return Math.max(...v) - Math.min(...v); };
 
-    // candidate goal measures: hidden ones if goalOnHidden, else any
-    const goalMeasures = params.goalOnHidden ? measures.filter((m) => m.hidden) : measures;
+    // candidate goal measures: hidden ones if goalOnHidden; and prefer non-"quad" (richer nonlinearity)
+    const pool = params.goalOnHidden ? measures.filter((m) => m.hidden) : measures;
+    const rich = pool.filter((m) => m.shape !== "quad");
+    const goalMeasures = rich.length ? rich : pool;
 
     let goal = null;
     for (let attempt = 0; attempt < 500 && !goal; attempt++) {

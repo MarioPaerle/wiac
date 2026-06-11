@@ -159,6 +159,18 @@ function cmdTrend(toks) {
   }
 }
 
+function cmdSweep(toks) {
+  const a = resolveSub(toks[0]), b = resolveSub(toks[1]);
+  const m = toks[2] ? resolveMeasure(toks[2]) : world.goal.constraints[0].measureId;
+  const k = toks[3] ? Math.max(2, Math.min(8, +toks[3])) : 4;
+  if (!a || !b || !m) return console.log(R.c.red("  ✗ usage: sweep <a> <b> [instrument] [k]"));
+  session.apply(A.measure(a, m)); session.apply(A.measure(b, m));
+  for (let i = 1; i <= k; i++) { const r = session.apply(A.mix(a, b, i / (k + 1))); if (r.newSubstanceId) session.apply(A.measure(r.newSubstanceId, m)); }
+  console.log(R.c.dim(`  sampled ${a}→${b} on ${measureLabel(m)} at ${k} points:`));
+  cmdTrend([toks[0], toks[1], m]);
+  after({ ok: true });
+}
+
 function cmdHist(toks) {
   const m = resolveMeasure(toks[0]);
   if (!m) return console.log(R.c.red("  ✗ usage: hist <instrument>"));
@@ -239,6 +251,7 @@ rl.on("line", (line) => {
       case "cook": cmdCook(toks); break;
       case "plot": cmdPlot(toks); break;
       case "trend": cmdTrend(toks); break;
+      case "sweep": cmdSweep(toks); break;
       case "hist": cmdHist(toks); break;
       case "corr": cmdCorr(); break;
       case "cluster": cmdCluster(toks); break;

@@ -144,7 +144,7 @@ function renderViz(snap) {
         : `<div class="flag">these samples don't cross the goal — sample between them or try another pair.</div>`;
     }
     const subSel = (cur, attr) => `<select data-trend="${attr}"><option value="">—</option>` + snap.substances.map((s) => `<option value="${s.id}" ${cur === s.id ? "selected" : ""}>${s.id}</option>`).join("") + `</select>`;
-    body = `<div class="controls-row">a ${subSel(a, "a")} b ${subSel(b, "b")} on ${msel(m, "tm")}</div>` +
+    body = `<div class="controls-row">a ${subSel(a, "a")} b ${subSel(b, "b")} on ${msel(m, "tm")} <button id="sweepBtn" ${a && b ? "" : "disabled"}>⤳ sample path (×4)</button></div>` +
       trendSVG(pts, { goal, interp: (t) => interpAt(pts, t), ylabel: mlabel(snap, m), endpoints: [a, b] }) + hint;
   }
   $("viz").innerHTML = `<div class="tabs">${tabBtn("scatter", "Scatter")}${tabBtn("corr", "Correlation")}${tabBtn("trend", "Trend / bracket")}</div>${body}`;
@@ -209,6 +209,15 @@ document.addEventListener("click", (e) => {
   if (t.dataset.cook) { if (state.selA) act(A.cook(state.selA, t.dataset.cook)); return; }
   if (t.id === "subBtn") { const v = $("subSel").value; if (v) act(A.submit(v)); return; }
   if (t.dataset.tab) { state.tab = t.dataset.tab; render(); return; }
+  if (t.id === "sweepBtn") {
+    const { trendA: a, trendB: b, trendM: m } = state;
+    if (a && b && m) {
+      state.session.apply(A.measure(a, m)); state.session.apply(A.measure(b, m));
+      for (let i = 1; i <= 4; i++) { const r = state.session.apply(A.mix(a, b, i / 5)); if (r.newSubstanceId) state.session.apply(A.measure(r.newSubstanceId, m)); }
+      render(); const sn = state.session.snapshot(); if (sn.status !== "playing") showEnd(sn);
+    }
+    return;
+  }
   if (t.id === "noteBtn") { const v = $("noteIn").value.trim(); if (v) act(A.note(v)); return; }
   if (t.id === "newBtn") { newWorld({ seed: (+$("seedIn").value) || Math.floor(Math.random() * 1e6), difficulty: $("diffSel").value, theme: $("themeSel").value }); return; }
 });

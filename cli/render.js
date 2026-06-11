@@ -1,11 +1,26 @@
 // Pure string builders for the terminal UI (no IO here). Snapshot in → strings out.
 
+// Modern-retro "Cobalt" palette (70-20-10): bg #0D1117 · structure #C9D1D9 · accent #58A6FF.
+// Truecolor with graceful fallback. Method names kept stable; cyan=accent, mag=muted.
 const useColor = process.stdout.isTTY && !process.env.NO_COLOR;
-const wrap = (code) => (s) => (useColor ? `\x1b[${code}m${s}\x1b[0m` : `${s}`);
+const rgb = (r, g, b) => (s) => (useColor ? `\x1b[38;2;${r};${g};${b}m${s}\x1b[0m` : `${s}`);
+const sgr = (code) => (s) => (useColor ? `\x1b[${code}m${s}\x1b[0m` : `${s}`);
 export const c = {
-  bold: wrap("1"), dim: wrap("2"), cyan: wrap("36"), green: wrap("32"),
-  yellow: wrap("33"), red: wrap("31"), mag: wrap("35"),
+  bold: sgr("1"), dim: sgr("2"),
+  fg: rgb(214, 218, 224),    // structure / body
+  cyan: rgb(232, 179, 65),   // accent (signature, phosphor amber) — interactive elements, key values
+  accent: rgb(232, 179, 65),
+  mag: rgb(138, 146, 158),   // muted (secondary, per 1-accent rule)
+  muted: rgb(138, 146, 158),
+  green: rgb(91, 200, 115),  // success (cool, so it doesn't blur into amber)
+  yellow: rgb(216, 134, 59), // warn (distinct orange)
+  red: rgb(255, 107, 102),   // error
 };
+
+// ASCII wordmark (slim, modern-retro). Printed in accent.
+export function wordmark() {
+  return c.cyan(["╦ ╦╦╔═╗╔═╗", "║║║║╠═╣║  ", "╚╩╝╩╩ ╩╚═╝"].join("\n"));
+}
 
 const GLYPHS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 export function glyphMap(snapshot) {
@@ -24,7 +39,9 @@ export function banner(snapshot) {
 export function briefing(snapshot, baselines) {
   const t = snapshot.theme;
   const L = [];
-  L.push(banner(snapshot));
+  L.push(wordmark());
+  L.push(c.muted(`World In A Context · ${t.label} · ${snapshot.difficulty} · seed ${c.cyan(snapshot.shareCode)}`));
+  L.push("");
   L.push(c.dim(`  ${t.flavor}`));
   L.push("");
   L.push(c.bold("  GOAL  ") + c.yellow(snapshot.goal.description));
@@ -112,23 +129,46 @@ export function endScreen(snapshot, baselines, score, ref) {
 }
 
 export function helpText() {
+  const cmd = (name, what) => "  " + c.cyan(name.padEnd(22)) + c.muted(what);
   return [
-    c.bold("COMMANDS  ") + c.dim("(analysis is free; measure costs 1 XP/instrument, synth costs 3 XP)"),
-    "  " + c.cyan("list [#tag]") + "             inventory table (· = unmeasured)",
-    "  " + c.cyan("measure <id> [m|all]") + "    read an instrument on a substance",
-    "  " + c.cyan("mix <a> <b> [λ]") + "         blend two substances (λ in 0..1, default 0.5)",
-    "  " + c.cyan("cook <id> [op]") + "          apply a unary operation (if available)",
-    "  " + c.cyan("plot <mX> <mY>") + "          ASCII scatter — find clusters & the goal band",
-    "  " + c.cyan("trend <a> <b> <m>") + "       plot measured points along the a→b blend (shape is hidden!)",
-    "  " + c.cyan("sweep <a> <b> [m] [k]") + "    auto-sample the a→b blend at k λ's to reveal the curve (costs XP)",
-    "  " + c.cyan("hist <m>") + "                histogram of a measure across inventory",
-    "  " + c.cyan("corr") + "                    correlation table — spot redundant instruments",
-    "  " + c.cyan("cluster [k]") + "             k-means taxonomy over measured substances",
-    "  " + c.cyan("calc <expr>") + "             numpy-style console: col(name), np.polyfit/lstsq/corr … (infer hidden!)",
-    "  " + c.cyan("dist <a> [b]") + "            similarity in measure-space",
-    "  " + c.cyan("name <id> <label>") + "       rename · " + c.cyan("tag <id> <#t>") + " · " + c.cyan("note <text>") + " · " + c.cyan("hypo <text>"),
-    "  " + c.cyan("inspect <id>") + " · " + c.cyan("goal") + " · " + c.cyan("notebook") + " · " + c.cyan("status"),
-    "  " + c.cyan("submit <id>") + "             propose a solution (wrong = +4 XP penalty)",
-    "  " + c.cyan("save [slot]") + " · " + c.cyan("reveal") + " · " + c.cyan("help") + " · " + c.cyan("quit"),
+    c.bold("HOW TO PLAY  ") + c.muted("measure cheaply → find the structure → synthesize toward the goal → submit."),
+    c.muted("  Measuring costs 1 XP. Synthesis (mix/cook) costs 3 XP. Analysis is free. Beat the solver baseline."),
+    "",
+    c.bold("ACT") + c.muted("  (costs XP)"),
+    cmd("measure <id> [m|all]", "read one/all instruments on a substance (1 XP each new read)"),
+    cmd("mix <a> <b> [λ]", "blend two substances at ratio λ∈0..1 → a NEW substance (3 XP). Then measure it."),
+    cmd("cook <id> [op]", "apply a unary operation, if available (3 XP)"),
+    cmd("submit <id>", "propose a solution (wrong submit = +4 XP)"),
+    "",
+    c.bold("LOOK") + c.muted("  (free — this is where you do the science)"),
+    cmd("plot <mX> <mY>", "scatter of 2 instruments → SEE clusters of similar substances + the goal band"),
+    cmd("trend <a> <b> <m>", "instrument m along the a→b blend → SEE the (non-linear!) response curve"),
+    cmd("sweep <a> <b> [m] [k]", "auto-sample that blend at k points to reveal the curve fast (costs XP)"),
+    cmd("corr", "correlation table → SEE which instruments are redundant / related"),
+    cmd("cluster [k]", "k-means → SEE the hidden families of substances"),
+    cmd("hist <m>", "histogram of an instrument → SEE its distribution / modes"),
+    cmd("dist <a> [b]", "similarity ranking in measure-space"),
+    cmd("calc <expr>", "numpy console: col(name), np.polyfit/lstsq, loocv(), design() — model & infer"),
+    "",
+    c.bold("NOTE & NAVIGATE") + c.muted("  (free)"),
+    cmd("name <id> <label>", "rename a substance · " + c.cyan("tag <id> <#t>") + " · " + c.cyan("note <text>")),
+    cmd("history", "the full lab log of everything you've done"),
+    cmd("inspect <id>", "all you know about a substance · " + c.cyan("goal") + " · " + c.cyan("status") + " · " + c.cyan("list [#tag]")),
+    cmd("save [slot]", c.cyan("reveal") + " (give up) · " + c.cyan("help") + " · " + c.cyan("quit")),
   ].join("\n");
+}
+
+// Full experiment history — readable lab log.
+export function historyView(snapshot) {
+  const L = [c.bold("LAB LOG  ") + c.muted(`(${snapshot.log.length} events)`)];
+  const ml = (id) => snapshot.measures.find((m) => m.id === id)?.label ?? id;
+  snapshot.log.forEach((e, i) => {
+    const n = c.muted(String(i + 1).padStart(3) + " ");
+    if (e.kind === "measure") L.push(n + c.fg(`measure ${e.subId} · ${ml(e.measureId)} = ${num(e.value)}`) + (e.free ? c.dim(" (cached)") : ""));
+    else if (e.kind === "mix") L.push(n + c.cyan(`${e.id}`) + c.fg(` = mix(${e.a}, ${e.b}, λ=${e.lambda.toFixed(3)})`));
+    else if (e.kind === "submit") L.push(n + (e.solved ? c.green("✓ SOLVED with " + e.subId) : c.red("✗ submit " + e.subId + " missed")));
+    else L.push(n + c.fg(`${e.kind} ${e.id ?? e.from ?? ""}`));
+  });
+  if (snapshot.log.length === 0) L.push(c.dim("  (nothing yet)"));
+  return L.join("\n");
 }

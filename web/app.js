@@ -1,5 +1,5 @@
 // WIAC web lens — thin client over the same engine the CLI uses.
-import { createWorld, GameSession, decodeShareCode, actions as A, listThemes, DIFFICULTY_KEYS, DIFFICULTIES, COSTS } from "../engine/index.js";
+import { createWorld, GameSession, decodeShareCode, actions as A, listThemes, DIFFICULTY_ORDER, DIFFICULTIES, COSTS } from "../engine/index.js";
 import { computeBaselines, scoreRun } from "../bots/baselines.js";
 import { collectMatrix, standardize, correlationMatrix, kmeans, interpAt, crossingsFromSamples } from "../shared/analysis.js";
 import { runConsole, formatValue } from "../shared/console.js";
@@ -12,7 +12,7 @@ const state = {
   session: null, world: null, baselines: null,
   selA: null, selB: null, lambda: 0.5,
   tab: "scatter", plotX: "m0", plotY: "m1", trendA: null, trendB: null, trendM: "m0",
-  consoleVars: {}, consoleLog: [],
+  consoleVars: {}, consoleLog: [], editing: null,
 };
 
 function glyph(snap, id) { return GLYPHS[snap.substances.findIndex((s) => s.id === id)] ?? "?"; }
@@ -73,7 +73,10 @@ function renderInventory(snap) {
     ms.map((m) => `<th title="${m.id}${m.hidden ? " (hidden — infer it)" : ""}">${m.hidden ? "🔒" : ""}${m.label.slice(0, 7)}</th>`).join("") + `<th></th></tr></thead><tbody>`;
   for (const s of snap.substances) {
     const cls = s.id === state.selA ? "selA" : s.id === state.selB ? "selB" : "";
-    h += `<tr class="sub ${cls}" data-sub="${s.id}"><td class="glyph">${glyph(snap, s.id)}</td><td>${s.name}${s.tags.map((t) => ` <span class="tag">#${t}</span>`).join("")}</td>`;
+    const nameCell = state.editing === s.id
+      ? `<input class="rename-input" data-rename="${s.id}" value="${escape(s.name)}" />`
+      : `<span class="rename" data-editname="${s.id}" title="click to rename">${escape(s.name)}</span>`;
+    h += `<tr class="sub ${cls}" data-sub="${s.id}"><td class="glyph">${glyph(snap, s.id)}</td><td>${nameCell}${s.tags.map((t) => ` <span class="tag">#${t}</span>`).join("")}</td>`;
     h += ms.map((m) => {
       const v = s.measurements[m.id];
       if (m.hidden && s.origin.kind !== "genesis" && v == null) return `<td class="locked" title="hidden instrument — infer it in the console">🔒</td>`;
@@ -150,7 +153,12 @@ function renderViz(snap) {
     body = `<div class="controls-row">a ${subSel(a, "a")} b ${subSel(b, "b")} on ${msel(m, "tm")} <button id="sweepBtn" ${a && b ? "" : "disabled"}>⤳ sample path (×4)</button></div>` +
       trendSVG(pts, { goal, interp: (t) => interpAt(pts, t), ylabel: mlabel(snap, m), endpoints: [a, b] }) + hint;
   }
-  $("viz").innerHTML = `<div class="tabs">${tabBtn("scatter", "Scatter")}${tabBtn("corr", "Correlation")}${tabBtn("trend", "Trend / bracket")}</div>${body}`;
+  const caps = {
+    scatter: "Each dot is a substance; the axes are two instruments. <b>Tight groups = a family</b> of similar substances; the dashed line marks the goal value.",
+    corr: "How strongly two instruments move together (−1…+1). <b>|r|≈1 ⇒ redundant</b> — they measure the same thing.",
+    trend: "An instrument's value as you blend a→b (λ: 0→1). The response shape is <b>hidden &amp; often non-linear</b> — sample points to reveal it; where the curve crosses the dashed goal is the λ to mix.",
+  };
+  $("viz").innerHTML = `<div class="tabs">${tabBtn("scatter", "Scatter")}${tabBtn("corr", "Correlation")}${tabBtn("trend", "Trend / bracket")}</div><p class="viz-cap">${caps[state.tab]}</p>${body}`;
 }
 
 let _clusters = null;
@@ -189,12 +197,17 @@ function renderNotebook(snap) {
 }
 
 function renderLog(snap) {
-  $("log").innerHTML = snap.log.slice(-12).reverse().map((e) => {
-    if (e.kind === "measure") return `<div>measure ${e.subId}.${e.measureId} = ${e.value.toFixed(3)}${e.free ? " (cached)" : ""}</div>`;
-    if (e.kind === "mix") return `<div>${e.id} = mix(${e.a}, ${e.b}, λ=${e.lambda.toFixed(2)})</div>`;
-    if (e.kind === "submit") return `<div>submit ${e.subId} → ${e.solved ? "SOLVED" : "miss"}</div>`;
-    return `<div>${e.kind} ${e.id ?? ""}</div>`;
-  }).join("");
+  const ml = (id) => snap.measures.find((m) => m.id === id)?.label ?? id;
+  if (snap.log.length === 0) { $("loghist").innerHTML = `<div class="empty">No experiments yet — measure a substance to begin.</div>`; return; }
+  const line = (e, i) => {
+    let cls = e.kind, gl = "·", txt;
+    if (e.kind === "measure") { gl = "·"; txt = `measure <b>${e.subId}</b> · ${ml(e.measureId)} = ${e.value.toFixed(3)}${e.free ? " (cached)" : ""}`; }
+    else if (e.kind === "mix") { gl = "⊕"; txt = `<b>${e.id}</b> = mix(${e.a}, ${e.b}, λ=${e.lambda.toFixed(2)})`; }
+    else if (e.kind === "submit") { cls = e.solved ? "win" : "miss"; gl = e.solved ? "✓" : "✗"; txt = e.solved ? `SOLVED with ${e.subId}` : `submit ${e.subId} missed`; }
+    else { gl = "⟳"; cls = "cook"; txt = `${e.kind} ${e.id ?? ""} (${e.from ?? ""})`; }
+    return `<div class="logline ${cls}"><span class="ix">${i + 1}</span><span class="gl">${gl}</span><span>${txt}</span></div>`;
+  };
+  $("loghist").innerHTML = snap.log.map(line).reverse().join("");
 }
 
 function escape(s) { return String(s).replace(/[<>&]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" }[c])); }
@@ -215,8 +228,17 @@ function showEnd(snap) {
 }
 
 // ---------------- events (delegation) ----------------
+function commitRename(input) {
+  const id = input.dataset.rename;
+  if (state.editing !== id) return;
+  state.editing = null;
+  const v = input.value.trim();
+  if (v) act(A.name(id, v)); else render();
+}
+
 document.addEventListener("click", (e) => {
   const t = e.target;
+  if (t.dataset.editname) { state.editing = t.dataset.editname; render(); const inp = document.querySelector("[data-rename]"); if (inp) { inp.focus(); inp.select(); } return; }
   if (t.dataset.sub && t.classList.contains("cell")) { act(A.measure(t.dataset.sub, t.dataset.m)); return; }
   if (t.dataset.measall) { act(A.measureAll(t.dataset.measall)); return; }
   if (t.closest("tr.sub")) {
@@ -245,7 +267,12 @@ document.addEventListener("click", (e) => {
 
 document.addEventListener("keydown", (e) => {
   if (e.key === "Enter" && e.target.id === "conIn") { runConsoleLine(e.target.value); }
+  if (e.target.dataset && e.target.dataset.rename) {
+    if (e.key === "Enter") commitRename(e.target);
+    else if (e.key === "Escape") { state.editing = null; render(); }
+  }
 });
+document.addEventListener("focusout", (e) => { if (e.target.dataset && e.target.dataset.rename) commitRename(e.target); });
 
 document.addEventListener("input", (e) => {
   const t = e.target;
@@ -260,6 +287,6 @@ document.addEventListener("input", (e) => {
 });
 
 // ---------------- boot ----------------
-$("diffSel").innerHTML = DIFFICULTY_KEYS.map((d) => `<option value="${d}">${DIFFICULTIES[d].label}</option>`).join("");
+$("diffSel").innerHTML = DIFFICULTY_ORDER.map((d) => `<option value="${d}" ${d === "normal" ? "selected" : ""}>${DIFFICULTIES[d].label}</option>`).join("");
 $("themeSel").innerHTML = listThemes().map((t) => `<option value="${t.id}">${t.label}</option>`).join("");
 newWorld({ seed: Math.floor(Math.random() * 1e6), difficulty: "tutorial", theme: "alchemy" });

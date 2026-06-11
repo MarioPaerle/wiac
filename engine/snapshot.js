@@ -52,7 +52,7 @@ export function buildSnapshot(session) {
     status: session.status,
     strikes: session.strikes,
     bestDelta: session.bestDelta(),
-    log: session.log.slice(-40),
+    log: session.log.slice(-200),
   };
 }
 

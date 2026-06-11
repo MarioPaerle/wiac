@@ -1,16 +1,16 @@
 // Difficulty presets → world-generation parameters.
-// Difficulty = how hidden the structure is + how NON-LINEAR the response + (hard) how many
-// instruments must be inferred. Keys are append-only (their index is baked into share codes).
+// Difficulty = how hidden the structure is + how NON-LINEAR the response + (hard) instruments to infer.
 //
-// Nonlinearity control (the explicit knobs Mario asked for):
-//   linScale         — weight of the LINEAR part of a measure (smaller ⇒ nonlinear term dominates)
-//   curvature        — amplitude of the nonlinear term (quad H / bump amp / satur amp)
-//   minNonlinearity  — a goal is rejected unless its blend path deviates ≥ this·range from the
-//                      straight endpoint line (so you can't reach it by eyeballing + interpolating)
-//   shapes           — allowed response shapes; goals avoid "quad" (the gentlest) when richer exist
-//   startKnown       — substances pre-characterized at t=0 (free prior knowledge / "literature")
+// Nonlinearity knobs: linScale (weight of the linear part — smaller ⇒ nonlinear dominates),
+// curvature (nonlinear amplitude), minNonlinearity (a goal is rejected unless its blend path
+// deviates ≥ this·range from the endpoint line), shapes (goals avoid "quad" when richer exist),
+// startKnown (substances pre-characterized at t=0 = free prior data).
+//
+// DIFFICULTY_KEYS is APPEND-ONLY (its index is baked into share codes — never reorder, or old codes
+// break). DIFFICULTY_ORDER is the easy→hard order for UIs/menus (decoupled from the key index).
 
-export const DIFFICULTY_KEYS = ["tutorial", "normal", "hard"];
+export const DIFFICULTY_KEYS = ["tutorial", "normal", "hard", "basic"]; // append-only!
+export const DIFFICULTY_ORDER = ["tutorial", "basic", "normal", "hard"]; // display order
 
 export const DIFFICULTIES = {
   tutorial: {
@@ -20,16 +20,34 @@ export const DIFFICULTIES = {
     mMeasures: 3,
     readout: { kind: "id" },
     bRange: 0.4,
+    linScale: 0.6, curvature: 0.85,
+    shapes: ["bump", "quad"],
+    minNonlinearity: 0.20,   // gentle: learn the loop; nonlinearity present but mild
+    startKnown: 2,
+    hiddenCount: 0,
+    ops: ["blend"],
+    nConstraints: 1,
+    epsFraction: 0.07,
+    budget: 80,
+    minPlayability: 1.3,
+  },
+  basic: {
+    label: "Basic",
+    n: 8, r: 3,
+    kCenters: 2, kBase: 6, clusterNoise: 0.08,
+    mMeasures: 4,
+    readout: { kind: "id" },
+    bRange: 0.5,
     linScale: 0.55, curvature: 1.1,
     shapes: ["bump", "satur", "quad"],
-    minNonlinearity: 0.30,
+    minNonlinearity: 0.35,   // a small but real non-linear puzzle, no hidden instruments
     startKnown: 2,
     hiddenCount: 0,
     ops: ["blend"],
     nConstraints: 1,
     epsFraction: 0.06,
-    budget: 90,
-    minPlayability: 1.5,
+    budget: 120,
+    minPlayability: 1.2,
   },
   normal: {
     label: "Normal",

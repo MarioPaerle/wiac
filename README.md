@@ -37,7 +37,7 @@ node --test
 In the CLI, type `help`. The loop: **measure** instruments (cheap — 1 XP), **plot/corr/cluster/calc**
 to find structure (free), **mix/cook** toward the goal (expensive — synthesis costs more), **submit**.
 `calc` is a numpy-style console (`col(name)`, `np.polyfit`, `np.lstsq`, …) — your scratchpad for
-modeling, and the only way to **infer the hidden instruments** in hard mode. Beat the researcher bot.
+modeling, and the only way to **infer the hidden instruments** in hard mode. Beat the algorithmic solver.
 
 ## How it works (one paragraph)
 
@@ -48,7 +48,7 @@ a fixed form: you must *characterize* each instrument by sampling. Along a blend
 measured value traces a smooth, often **non-monotone** curve (a resonance can arch up through the
 target with *both* endpoints below it), so naive bisection fails: you sample points, see the shape,
 and home in on the mix ratio that hits the target. The goal sits on a real blend path that is
-non-monotone and crossed by several base pairs, so a shape-agnostic "researcher" bot always wins —
+non-monotone and crossed by several base pairs, so a shape-agnostic solver bot always wins —
 and certifies, alongside a brute-force bot, that every world is winnable with `≪` the blind-search
 cost. The `trend` tool (CLI + web) draws your measured points + the interpolated curve and tells you
 where it crosses the goal.
@@ -62,7 +62,7 @@ themes/    vocabulary packs (alchemy · biolab · physics) — same math, differ
 shared/    player-side analysis (correlation, k-means) used by CLI and web
 cli/       terminal client + ASCII research instruments
 web/       browser client (interactive scatter, correlation heatmap, trend)
-bots/      brute-force + researcher solvers + the world validator
+bots/      brute-force + algorithmic solvers + the world validator
 docs/      CONCEPT.md (the study) · PROTOTYPE_PLAN.md (decisions)
 ```
 
@@ -72,7 +72,11 @@ The engine never leaks hidden vectors: UIs only ever see a redacted `snapshot()`
 ## Difficulty
 
 Difficulty = how hidden the structure is + how **non-linear** the response is + (hard) how many
-instruments you must **infer**. `tutorial` (n6/r2, blend only) · `normal` (n10/r3, +cook, strong
-nonlinearity) · `hard` (n16/r4, +refine, **2 hidden instruments — the goal is on one of them, so you
-predict it from the others via the console**). Measuring is cheap, synthesis is expensive (think
-before you act). Worlds share via a seed code.
+instruments you must **infer**. Four tiers (easy→hard): `tutorial` (gentle, learn the loop) ·
+`basic` (small non-linear puzzle) · `normal` (+cook, strong nonlinearity) · `hard` (**hidden
+instruments — the goal is on one, so you predict it from the others via the console**). Measuring
+is cheap, synthesis is expensive. Worlds share via a seed code.
+
+UI: modern-retro "phosphor" look (amber 70-20-10) in **both** CLI (ASCII wordmark, colored panels)
+and web (faceplate panels, inline-rename of substances, a Lab-log/history panel, "how-to-read"
+captions on every chart).

@@ -279,6 +279,7 @@ rl.on("line", (line) => {
       case "goal": case "g": console.log(R.goalView(session.snapshot())); break;
       case "notebook": case "nb": console.log(R.notebookView(session.snapshot())); break;
       case "status": case "budget": console.log(R.hud(session.snapshot())); break;
+      case "history": case "log": console.log(R.historyView(session.snapshot())); break;
       case "submit": cmdSubmit(toks); break;
       case "save": { const slot = toks[0] || "1"; saveRun(slot, session.serialize()); console.log(R.c.dim(`  saved to slot ${slot}.`)); break; }
       case "saves": console.log(listRuns().map((r) => `  ${r.slot}: ${r.shareCode} (${r.status}, ${r.spent} XP)`).join("\n") || "  (none)"); break;

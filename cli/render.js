@@ -31,7 +31,7 @@ export function briefing(snapshot, baselines) {
   L.push("");
   L.push(c.bold("  INSTRUMENTS  ") + c.dim("(measure these — measuring is cheap)"));
   L.push("    " + snapshot.measures.map((m) => `${m.hidden ? c.yellow(m.label + "🔒") : c.cyan(m.label)}[${m.id}]`).join("   "));
-  if (snapshot.measures.some((m) => m.hidden)) L.push(c.dim("    🔒 = runs only on the original samples; for your syntheses you must INFER it (try `calc`)."));
+  if (snapshot.measures.some((m) => m.hidden)) L.push(c.dim("    🔒 = readable on EVERY original (cost 1) but NOT your syntheses → gather data, then INFER (calc: design/lstsq/loocv)."));
   L.push(c.bold("  PROCEDURES   ") + c.dim("(operations)"));
   L.push("    " + snapshot.ops.map((o) => `${c.mag(o.label)}[${o.id}${o.hasLambda ? " a b λ" : " x"}]`).join("   "));
   L.push("");

@@ -49,6 +49,11 @@ const np = {
     const Atb = At.map((ri) => np.dot(ri, b));
     return gsolve(AtA, Atb);
   },
+  ones: (n) => new Array(n).fill(1),
+  zeros: (n) => new Array(n).fill(0),
+  array: (x) => (Array.isArray(x) ? x.slice() : [x]),
+  // stack equal-length column arrays into rows: column_stack([[a,b],[c,d]]) -> [[a,c],[b,d]]
+  column_stack: (cols) => cols[0].map((_, i) => cols.map((c) => c[i])),
 };
 
 export function buildScope(snapshot) {
@@ -61,7 +66,35 @@ export function buildScope(snapshot) {
   const row = (id) => M[subIds.indexOf(id)];
   const isBase = snapshot.substances.map((s) => s.origin.kind === "genesis");
   const goal = snapshot.goal.constraints.map((c) => ({ measure: c.measureLabel, target: c.target, eps: c.tol, hidden: c.hidden }));
-  return { np, M, subs: subIds, measures: labels, col, row, isBase, goal,
+
+  // design(features, target?): build a regression design matrix over substances where every listed
+  // feature (and target, if given) is known. Returns {X (rows of [features…, 1]), y, ids}.
+  const design = (features, target) => {
+    const fs = (Array.isArray(features) ? features : [features]).map(colIndex);
+    const tj = target != null ? colIndex(target) : -1;
+    const X = [], y = [], ids = [];
+    M.forEach((r, i) => {
+      const fv = fs.map((j) => r[j]);
+      const tv = tj >= 0 ? r[tj] : 0;
+      if (fv.every((v) => v != null) && (tj < 0 || tv != null)) { X.push([...fv, 1]); if (tj >= 0) y.push(tv); ids.push(subIds[i]); }
+    });
+    return tj >= 0 ? { X, y, ids } : { X, ids };
+  };
+  // leave-one-out CV of a LINEAR fit target ~ features → {mae, max, n}. High mae ⇒ don't trust a global model.
+  const loocv = (features, target) => {
+    const d = design(features, target);
+    if (d.X.length < 3) return { mae: NaN, max: NaN, n: d.X.length };
+    let s = 0, mx = 0, cnt = 0;
+    for (let k = 0; k < d.X.length; k++) {
+      const Xt = d.X.filter((_, i) => i !== k), yt = d.y.filter((_, i) => i !== k);
+      const coef = np.lstsq(Xt, yt); if (!coef) continue;
+      const e = Math.abs(np.dot(coef, d.X[k]) - d.y[k]); s += e; mx = Math.max(mx, e); cnt++;
+    }
+    return { mae: s / cnt, max: mx, n: cnt };
+  };
+  const predict = (coef, xs) => np.dot(coef, [...(Array.isArray(xs) ? xs : [xs]), 1]);
+
+  return { np, M, subs: subIds, measures: labels, col, row, isBase, goal, design, loocv, predict,
     // rows where every listed column is known
     pairs: (a, b) => { const ca = col(a), cb = col(b), xs = [], ys = []; for (let i = 0; i < ca.length; i++) if (ca[i] != null && cb[i] != null) { xs.push(ca[i]); ys.push(cb[i]); } return [xs, ys]; } };
 }

@@ -23,12 +23,15 @@ const RULES = `WIAC — you are a scientist exploring an UNKNOWN world.
 - measure <sub> <instrument>  reads an instrument (cheap, 1 XP; cached reads are free; "all" reads every instrument).
 - mix <a> <b> <λ>             blends two substances at ratio λ∈[0,1] → a NEW substance (expensive, 3 XP). Then measure it.
 - cook/refine <sub>           unary transforms (expensive, 3 XP), if available.
-- calc <expr>                 a numpy-style console over your measured data: M, subs, measures, col(name), row(id), goal,
-                              pairs(a,b); np.mean/std/corr/polyfit/polyval/interp/lstsq/linspace. Free.
+- calc <expr>                 a numpy-style console over your measured data (free). Scope: M, subs, measures, col(name),
+                              row(id), goal, pairs(a,b), design(features,target), loocv(features,target), predict(coef,xs);
+                              np.mean/std/corr/polyfit/polyval/interp/lstsq/linspace/ones/zeros/column_stack.
+                              For a hidden goal: design(['m0','m3'],'m6') builds X,y; np.lstsq(d.X,d.y) fits; loocv tells you if to trust it.
 - submit <sub>                propose a solution; a wrong submit costs 4 XP.
 - GOAL: find a substance whose instrument value(s) match the target within tolerance.
 - Instrument responses are NON-LINEAR (curved, often non-monotone): you cannot assume blending interpolates linearly.
-- In hard mode some instruments are HIDDEN (lock): readable on the ORIGINAL samples only, not your syntheses → you must INFER them.
+- In hard mode some instruments are HIDDEN (lock): readable on EVERY ORIGINAL sample (characterized or not), but NOT on your
+  syntheses → measure them on the originals to get training data, fit a model, and INFER the value for your blends.
 - Some substances start already characterized (tag "known"). Think with cheap measurements; synthesize sparingly.`;
 
 function parse(argv) {

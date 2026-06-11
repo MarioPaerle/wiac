@@ -59,7 +59,7 @@ export function buildSnapshot(session) {
 function goalDescription(goal, measureLabel) {
   const parts = goal.constraints.map((c) => `${measureLabel(c.measureId)} ≈ ${round(c.target)} (±${round(c.eps)})`);
   const hiddenGoal = goal.constraints.some((c) => c.hidden);
-  return `Find a substance with ${parts.join(" AND ")}` + (hiddenGoal ? " — but this instrument only runs on the original samples; you must INFER it for your syntheses." : "");
+  return `Find a substance with ${parts.join(" AND ")}` + (hiddenGoal ? " — this instrument runs on EVERY original sample (measure it cheaply to gather training data) but NOT on your syntheses; fit a model and INFER it. Tip: a global fit is often unreliable — interpolate locally between bracketing originals (try loocv())." : "");
 }
 
 function round(x, d = 3) {

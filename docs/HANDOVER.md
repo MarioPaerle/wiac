@@ -85,8 +85,14 @@ report to tune knobs. (See this turn's prompt for a template.) Two playtests so 
   endpoints +0.45/−0.47, λ=0.5 → −1.32; linear would predict −0.01). Target was OUTSIDE the originals'
   hull → synthesis forced (good). BUT it solved by 1-D local interpolation (regula falsi) on a
   monotone arm, not by modeling the mechanism — "a bracket-and-bisect bot would do as well."
-- **hard seed 27182**: (running at handover time — update this section with its result re: whether
-  hidden-instrument inference is human-feasible and fun.)
+- **hard seed 27182** (goal = hidden salinity): SOLVED 103/240 XP, ONE submit, genuine modeling
+  (no brute-force). Hidden-instrument inference IS human-feasible and "rewarding detective work."
+  Key findings → already fixed in v0.5: (a) the hidden instrument is readable on ALL originals, not
+  just "known"-tagged — was undersignaled → now stated in the goal text + briefings; (b) a GLOBAL
+  fit is unreliable (LOO mae 0.43–0.69 vs tol 0.093), only LOCAL interpolation between bracketing
+  originals works → added `loocv()` so players see this, and `design()` + np.ones/zeros/column_stack
+  so building a regression is a one-liner. Remaining nuance: difficulty hinges on realizing the
+  model is only locally valid — acceptable for hard, but watch that it doesn't tip into frustrating.
 
 ## Open work / backlog (prioritized from the playtests — this is what to do next)
 1. **Measurement noise** (biggest anti-brute-force lever per playtest): exact noiseless reads make

@@ -1,0 +1,13 @@
+{
+  "name": "wiac",
+  "version": "0.1.0",
+  "description": "World In A Context — a science-discovery game whose backbone runs on the CLI",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "play": "node cli/main.js",
+    "serve": "node serve.js",
+    "validate": "node bots/validate-world.js",
+    "test": "node --test"
+  }
+}

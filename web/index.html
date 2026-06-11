@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>WIAC — World In A Context</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <h1>WIAC</h1>
+    <span class="chip" id="themeName">—</span>
+    <span class="chip" id="seedcode">—</span>
+    <span class="spacer"></span>
+    <span class="ctl">seed <input id="seedIn" type="number" placeholder="random" style="width:96px" /></span>
+    <span class="ctl"><select id="diffSel"></select></span>
+    <span class="ctl"><select id="themeSel"></select></span>
+    <button class="primary" id="newBtn">New world</button>
+  </header>
+
+  <div id="goal"></div>
+  <div id="hud"></div>
+
+  <main>
+    <section>
+      <div class="panel"><h3>Inventory</h3><div id="inventory"></div></div>
+      <div class="panel"><h3>Synthesis</h3><div id="synth"></div></div>
+    </section>
+    <section>
+      <div class="panel"><h3>Instruments</h3><div id="viz"></div></div>
+      <div class="panel"><h3>Lab notebook</h3><div id="notebook"></div></div>
+    </section>
+  </main>
+
+  <div id="log"></div>
+  <div id="overlay"></div>
+
+  <!-- Zero build: the SAME engine the CLI uses, loaded as ES modules. -->
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

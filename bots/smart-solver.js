@@ -19,9 +19,13 @@ export function smartSolve(world, { budget = 100000 } = {}) {
   const session = new GameSession(world, { budget });
   const m = c.measureId, target = c.target, eps = c.eps;
 
+  // privileged goal read (validator only): the goal instrument may be HIDDEN for the player on
+  // synthesized samples, but the bot reads truth to certify a reachable solution exists. Charges XP.
+  const readGoal = (id) => { session.budget.spent += 1; return world.kernel.measure(world, session.get(id).vec, m); };
+
   const bases = session.substances.map((s) => s.id);
   const baseVal = {};
-  for (const id of bases) baseVal[id] = session.apply(A.measure(id, m)).value;
+  for (const id of bases) baseVal[id] = readGoal(id);
 
   // order pairs: straddling endpoints first (cheapest), then by how close an endpoint gets
   const pairs = [];
@@ -37,7 +41,7 @@ export function smartSolve(world, { budget = 100000 } = {}) {
     for (let step = 0; step < REFINE_STEPS; step++) {
       const mid = (lo + hi) / 2;
       const id = session.apply(A.mix(a, b, mid)).newSubstanceId;
-      const v = session.apply(A.measure(id, m)).value;
+      const v = readGoal(id);
       if (Math.abs(v - target) <= eps) { session.apply(A.submit(id)); return id; }
       if ((vlo - target) * (v - target) > 0) { lo = mid; vlo = v; } else hi = mid;
     }
@@ -51,7 +55,7 @@ export function smartSolve(world, { budget = 100000 } = {}) {
     else {
       // an interior hump may cross the target: sample a coarse grid to find a bracket
       const pts = [{ t: 0, v: baseVal[a] }, { t: 1, v: baseVal[b] }];
-      for (const t of GRID) { const id = session.apply(A.mix(a, b, t)).newSubstanceId; pts.push({ t, v: session.apply(A.measure(id, m)).value }); }
+      for (const t of GRID) { const id = session.apply(A.mix(a, b, t)).newSubstanceId; pts.push({ t, v: readGoal(id) }); }
       pts.sort((p, q) => p.t - q.t);
       for (let k = 1; k < pts.length; k++) if ((pts[k - 1].v - target) * (pts[k].v - target) <= 0) intervals.push({ lo: pts[k - 1].t, hi: pts[k].t, vlo: pts[k - 1].v });
     }

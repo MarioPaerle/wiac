@@ -25,7 +25,8 @@ function bruteOnce(world, budget, seed) {
     }
     let ok = true;
     for (const c of cons) {
-      const v = session.apply(A.measure(newId, c.measureId)).value;
+      session.budget.spent += 1; // privileged truth read (the goal may be hidden for the player)
+      const v = world.kernel.measure(world, session.get(newId).vec, c.measureId);
       if (Math.abs(v - c.target) > c.eps) ok = false;
     }
     if (ok) return { solved: true, experiments: session.budget.spent };

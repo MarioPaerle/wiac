@@ -34,8 +34,10 @@ node bots/validate-world.js --seeds 1..60
 node --test
 ```
 
-In the CLI, type `help`. The loop: **measure** instruments (costs XP), **plot/corr/cluster** to
-find structure (free), **mix** substances toward the goal, **submit**. Beat the researcher bot.
+In the CLI, type `help`. The loop: **measure** instruments (cheap — 1 XP), **plot/corr/cluster/calc**
+to find structure (free), **mix/cook** toward the goal (expensive — synthesis costs more), **submit**.
+`calc` is a numpy-style console (`col(name)`, `np.polyfit`, `np.lstsq`, …) — your scratchpad for
+modeling, and the only way to **infer the hidden instruments** in hard mode. Beat the researcher bot.
 
 ## How it works (one paragraph)
 
@@ -69,7 +71,8 @@ The engine never leaks hidden vectors: UIs only ever see a redacted `snapshot()`
 
 ## Difficulty
 
-Difficulty = how hidden the structure is + how **curved** the response is.
-`tutorial` (n6/r2, blend only) · `normal` (n10/r3, +cook, more curvature) ·
-`hard` (n16/r4, +refine, strongest curvature, bigger world). Tolerance is **loose** (you model the
-curve, you don't grind bisection); the goal path is always non-monotone. Worlds share via a seed code.
+Difficulty = how hidden the structure is + how **non-linear** the response is + (hard) how many
+instruments you must **infer**. `tutorial` (n6/r2, blend only) · `normal` (n10/r3, +cook, strong
+nonlinearity) · `hard` (n16/r4, +refine, **2 hidden instruments — the goal is on one of them, so you
+predict it from the others via the console**). Measuring is cheap, synthesis is expensive (think
+before you act). Worlds share via a seed code.

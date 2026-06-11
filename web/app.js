@@ -1,7 +1,8 @@
 // WIAC web lens — thin client over the same engine the CLI uses.
-import { createWorld, GameSession, decodeShareCode, actions as A, listThemes, DIFFICULTY_KEYS, DIFFICULTIES } from "../engine/index.js";
+import { createWorld, GameSession, decodeShareCode, actions as A, listThemes, DIFFICULTY_KEYS, DIFFICULTIES, COSTS } from "../engine/index.js";
 import { computeBaselines, scoreRun } from "../bots/baselines.js";
 import { collectMatrix, standardize, correlationMatrix, kmeans, interpAt, crossingsFromSamples } from "../shared/analysis.js";
+import { runConsole, formatValue } from "../shared/console.js";
 import { scatterSVG, heatmapSVG, trendSVG } from "./plots.js";
 
 const GLYPHS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
@@ -11,6 +12,7 @@ const state = {
   session: null, world: null, baselines: null,
   selA: null, selB: null, lambda: 0.5,
   tab: "scatter", plotX: "m0", plotY: "m1", trendA: null, trendB: null, trendM: "m0",
+  consoleVars: {}, consoleLog: [],
 };
 
 function glyph(snap, id) { return GLYPHS[snap.substances.findIndex((s) => s.id === id)] ?? "?"; }
@@ -40,7 +42,7 @@ function act(action) {
 function render() {
   const snap = state.session.snapshot();
   renderHeader(snap); renderGoal(snap); renderHud(snap);
-  renderInventory(snap); renderSynth(snap); renderViz(snap); renderNotebook(snap); renderLog(snap);
+  renderInventory(snap); renderSynth(snap); renderViz(snap); renderConsole(snap); renderNotebook(snap); renderLog(snap);
 }
 
 function renderHeader(snap) {
@@ -68,12 +70,13 @@ function renderHud(snap) {
 function renderInventory(snap) {
   const ms = snap.measures;
   let h = `<table><thead><tr><th></th><th>${snap.theme.substanceWord}</th>` +
-    ms.map((m) => `<th title="${m.id}">${m.label.slice(0, 7)}</th>`).join("") + `<th></th></tr></thead><tbody>`;
+    ms.map((m) => `<th title="${m.id}${m.hidden ? " (hidden — infer it)" : ""}">${m.hidden ? "🔒" : ""}${m.label.slice(0, 7)}</th>`).join("") + `<th></th></tr></thead><tbody>`;
   for (const s of snap.substances) {
     const cls = s.id === state.selA ? "selA" : s.id === state.selB ? "selB" : "";
     h += `<tr class="sub ${cls}" data-sub="${s.id}"><td class="glyph">${glyph(snap, s.id)}</td><td>${s.name}${s.tags.map((t) => ` <span class="tag">#${t}</span>`).join("")}</td>`;
     h += ms.map((m) => {
       const v = s.measurements[m.id];
+      if (m.hidden && s.origin.kind !== "genesis" && v == null) return `<td class="locked" title="hidden instrument — infer it in the console">🔒</td>`;
       return `<td class="cell ${v != null ? "known" : ""}" data-sub="${s.id}" data-m="${m.id}">${v != null ? v.toFixed(3) : "·"}</td>`;
     }).join("");
     h += `<td><button data-measall="${s.id}" title="measure all">⊕</button></td></tr>`;
@@ -90,8 +93,8 @@ function renderSynth(snap) {
       <span class="sel">A <select id="selA">${opts(state.selA)}</select></span>
       <span class="sel">B <select id="selB">${opts(state.selB)}</select></span>
       <span class="lam">λ <input type="range" id="lam" min="0" max="1" step="0.01" value="${state.lambda}"><span class="sel" id="lamv">${state.lambda.toFixed(2)}</span></span>
-      <button class="primary" id="mixBtn">${snap.ops.find((o) => o.hasLambda)?.label ?? "blend"} (−2)</button>
-      ${unary.map((o) => `<button data-cook="${o.id}">${o.label} A (−2)</button>`).join("")}
+      <button class="primary" id="mixBtn">${snap.ops.find((o) => o.hasLambda)?.label ?? "blend"} (−${COSTS.synth})</button>
+      ${unary.map((o) => `<button data-cook="${o.id}">${o.label} A (−${COSTS.synth})</button>`).join("")}
     </div>
     <div class="controls-row" style="margin-top:10px">
       <span class="sel">submit <select id="subSel">${opts(state.selA)}</select></span>
@@ -162,6 +165,23 @@ function recomputeClusters(snap) {
 }
 function clusterOf(snap, id) { return _clusters?.get(id) ?? null; }
 
+function renderConsole(snap) {
+  const log = state.consoleLog.slice(-8).map((e) =>
+    `<div class="cin">› ${escape(e.in)}</div><div class="cout${e.err ? " cerr" : ""}">${escape(e.out)}</div>`).join("");
+  $("console").innerHTML = `
+    <div class="conlog">${log || `<div class="dim">A numpy-style scratchpad. Try <code>np.corr(col('density'), col('acidity'))</code> — or infer a hidden instrument with <code>np.lstsq</code>.</div>`}</div>
+    <div class="controls-row"><input id="conIn" placeholder="np.polyfit(col('acidity'), col('density'), 2)" style="flex:1; font-family:var(--mono)"><button id="conRun">run</button></div>
+    <div class="dim" style="font-size:11px">data: <code>M</code> <code>subs</code> <code>measures</code> <code>col(name)</code> <code>row(id)</code> <code>isBase</code> <code>goal</code> <code>pairs(a,b)</code> · np.mean/std/corr/polyfit/polyval/interp/lstsq</div>`;
+}
+
+function runConsoleLine(line) {
+  if (!line.trim()) return;
+  const r = runConsole(state.session.snapshot(), line, state.consoleVars);
+  state.consoleVars = r.vars;
+  state.consoleLog.push({ in: line, out: r.ok ? (r.assigned ? r.assigned + " = " : "") + formatValue(r.value) : "✗ " + r.error, err: !r.ok });
+  render();
+}
+
 function renderNotebook(snap) {
   $("notebook").innerHTML = `
     <div class="controls-row"><input id="noteIn" placeholder="record a hypothesis or observation…" style="flex:1"><button id="noteBtn">Add</button></div>
@@ -218,8 +238,13 @@ document.addEventListener("click", (e) => {
     }
     return;
   }
+  if (t.id === "conRun") { runConsoleLine($("conIn").value); return; }
   if (t.id === "noteBtn") { const v = $("noteIn").value.trim(); if (v) act(A.note(v)); return; }
   if (t.id === "newBtn") { newWorld({ seed: (+$("seedIn").value) || Math.floor(Math.random() * 1e6), difficulty: $("diffSel").value, theme: $("themeSel").value }); return; }
+});
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && e.target.id === "conIn") { runConsoleLine(e.target.value); }
 });
 
 document.addEventListener("input", (e) => {

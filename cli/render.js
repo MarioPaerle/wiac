@@ -29,8 +29,9 @@ export function briefing(snapshot, baselines) {
   L.push("");
   L.push(c.bold("  GOAL  ") + c.yellow(snapshot.goal.description));
   L.push("");
-  L.push(c.bold("  INSTRUMENTS  ") + c.dim("(measure these)"));
-  L.push("    " + snapshot.measures.map((m) => `${c.cyan(m.label)}[${m.id}]`).join("   "));
+  L.push(c.bold("  INSTRUMENTS  ") + c.dim("(measure these — measuring is cheap)"));
+  L.push("    " + snapshot.measures.map((m) => `${m.hidden ? c.yellow(m.label + "🔒") : c.cyan(m.label)}[${m.id}]`).join("   "));
+  if (snapshot.measures.some((m) => m.hidden)) L.push(c.dim("    🔒 = runs only on the original samples; for your syntheses you must INFER it (try `calc`)."));
   L.push(c.bold("  PROCEDURES   ") + c.dim("(operations)"));
   L.push("    " + snapshot.ops.map((o) => `${c.mag(o.label)}[${o.id}${o.hasLambda ? " a b λ" : " x"}]`).join("   "));
   L.push("");
@@ -55,7 +56,7 @@ export function hud(snapshot) {
 export function inventory(snapshot, filterTag = null) {
   const g = glyphMap(snapshot);
   const ms = snapshot.measures;
-  const head = "  " + "id".padEnd(5) + "·".padEnd(2) + "name".padEnd(16) + ms.map((m) => m.label.slice(0, 7).padStart(8)).join("");
+  const head = "  " + "id".padEnd(5) + "·".padEnd(2) + "name".padEnd(16) + ms.map((m) => (m.hidden ? "🔒" + m.label.slice(0, 5) : m.label.slice(0, 7)).padStart(8)).join("");
   const rows = [c.bold(head)];
   for (const s of snapshot.substances) {
     if (filterTag && !s.tags.includes(filterTag)) continue;
@@ -123,6 +124,7 @@ export function helpText() {
     "  " + c.cyan("hist <m>") + "                histogram of a measure across inventory",
     "  " + c.cyan("corr") + "                    correlation table — spot redundant instruments",
     "  " + c.cyan("cluster [k]") + "             k-means taxonomy over measured substances",
+    "  " + c.cyan("calc <expr>") + "             numpy-style console: col(name), np.polyfit/lstsq/corr … (infer hidden!)",
     "  " + c.cyan("dist <a> [b]") + "            similarity in measure-space",
     "  " + c.cyan("name <id> <label>") + "       rename · " + c.cyan("tag <id> <#t>") + " · " + c.cyan("note <text>") + " · " + c.cyan("hypo <text>"),
     "  " + c.cyan("inspect <id>") + " · " + c.cyan("goal") + " · " + c.cyan("notebook") + " · " + c.cyan("status"),

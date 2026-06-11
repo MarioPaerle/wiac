@@ -10,6 +10,7 @@ import { computeBaselines, scoreRun } from "../bots/baselines.js";
 import * as R from "./render.js";
 import * as P from "./plots.js";
 import { collectMatrix, standardize, correlationMatrix, kmeans, substanceDistance, interpAt, crossingsFromSamples } from "../shared/analysis.js";
+import { runConsole, formatValue } from "../shared/console.js";
 import { saveRun, loadRun, listRuns } from "./storage.js";
 
 // ---- args ----
@@ -225,6 +226,19 @@ function cmdSubmit(toks) {
   after(r);
 }
 
+const consoleVars = {};
+function cmdCalc(toks) {
+  const line = toks.join(" ").trim();
+  if (!line) {
+    return console.log(R.c.dim("  numpy-style console. Data: M, subs, measures, col(name), row(id), isBase, goal, pairs(a,b).\n" +
+      "  np.mean/std/corr/polyfit/polyval/interp/lstsq/linspace …   e.g.  calc np.corr(col('density'), col('acidity'))\n" +
+      "  assign with =:  calc w = np.polyfit(col('acidity'), col('density'), 2)   then   calc np.polyval(w, 0.5)"));
+  }
+  const r = runConsole(session.snapshot(), line, consoleVars);
+  if (!r.ok) return console.log(R.c.red("  ✗ " + r.error));
+  console.log(R.c.dim("  " + (r.assigned ? r.assigned + " = " : "")) + formatValue(r.value));
+}
+
 function cmdReveal() {
   const ref = world.kernel.referenceSolve ? world.kernel.referenceSolve(world) : null;
   console.log(R.c.yellow(`  hidden dimension r = ${world.meta.r} (ambient n = ${world.meta.n}), ${world.params.kCenters} clusters.`));
@@ -255,6 +269,7 @@ rl.on("line", (line) => {
       case "hist": cmdHist(toks); break;
       case "corr": cmdCorr(); break;
       case "cluster": cmdCluster(toks); break;
+      case "calc": case "np": case "py": cmdCalc(toks); break;
       case "dist": cmdDist(toks); break;
       case "name": after(session.apply(A.name(resolveSub(toks[0]), toks.slice(1).join(" ")))); break;
       case "tag": after(session.apply(A.tag(resolveSub(toks[0]), toks.slice(1).join(" ").replace("#", "")))); break;

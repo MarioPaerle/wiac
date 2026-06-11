@@ -54,6 +54,7 @@ tr.sub.selB { box-shadow: inset 3px 0 0 var(--accent); }
 td.cell { cursor: pointer; color: var(--dim); }
 td.cell.known { color: var(--ink); }
 td.cell:hover { background: var(--accent); color: #04121c; }
+td.locked { text-align: center; opacity: .55; }
 .glyph { color: var(--accent); }
 .tag { color: var(--dim); font-size: 11px; }
 
@@ -80,6 +81,11 @@ td.cell:hover { background: var(--accent); color: #04121c; }
 #log { font-family: var(--mono); font-size: 12px; color: var(--dim); max-height: 120px; overflow: auto; padding: 8px 18px; border-top: 1px solid var(--line); }
 #notebook textarea { width: 100%; background: var(--panel2); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 6px; font: inherit; resize: vertical; }
 .note { border-left: 2px solid var(--line); padding-left: 8px; margin: 4px 0; color: var(--dim); font-size: 12.5px; }
+.conlog { font-family: var(--mono); font-size: 12px; max-height: 150px; overflow: auto; margin-bottom: 8px; }
+.conlog code { background: var(--panel2); padding: 1px 4px; border-radius: 4px; }
+.cin { color: var(--accent); white-space: pre-wrap; }
+.cout { color: var(--ink); white-space: pre-wrap; margin-bottom: 6px; }
+.cout.cerr { color: var(--bad); }
 
 #overlay { position: fixed; inset: 0; background: rgba(6,9,13,.82); display: none; align-items: center; justify-content: center; }
 #overlay.show { display: flex; }

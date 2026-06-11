@@ -13,8 +13,9 @@ import { getTheme } from "../themes/registry.js";
 // playability gate lives in bots/validate-world.js to avoid a circular import).
 function validate(gen, params) {
   if (!gen.goal || gen.goal._failed || gen.goal.constraints.length === 0) return false;
-  // identifiability: the linear parts of the measures must span the r-dim latent space
-  const M = gen.measures.map((m) => m.a); // m × r (latent linear parts)
+  // identifiability: the OBSERVABLE measures must span the r-dim latent space, so a player can
+  // identify the world (and infer any hidden instrument) from what they can actually measure.
+  const M = gen.measures.filter((m) => !m.hidden).map((m) => m.a); // observable × r
   if (M.length < params.r) return false;
   const sv = singularValues(M);
   if (!(sv[params.r - 1] / (sv[0] || 1) > 1e-3)) return false;

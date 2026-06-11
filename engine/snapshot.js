@@ -6,7 +6,7 @@ export function buildSnapshot(session) {
   const w = session.world;
   const theme = w.theme;
 
-  const measures = w.measures.map((m, i) => ({ id: m.id, label: theme.measures[i] ?? m.id }));
+  const measures = w.measures.map((m, i) => ({ id: m.id, label: theme.measures[i] ?? m.id, hidden: !!m.hidden }));
   const measureLabel = (id) => measures.find((m) => m.id === id)?.label ?? id;
 
   const ops = w.ops.map((o) => ({
@@ -30,6 +30,7 @@ export function buildSnapshot(session) {
       measureLabel: measureLabel(c.measureId),
       target: round(c.target),
       tol: round(c.eps),
+      hidden: !!c.hidden,
     })),
     description: goalDescription(w.goal, measureLabel),
   };
@@ -57,7 +58,8 @@ export function buildSnapshot(session) {
 
 function goalDescription(goal, measureLabel) {
   const parts = goal.constraints.map((c) => `${measureLabel(c.measureId)} ≈ ${round(c.target)} (±${round(c.eps)})`);
-  return `Find a substance with ${parts.join(" AND ")}`;
+  const hiddenGoal = goal.constraints.some((c) => c.hidden);
+  return `Find a substance with ${parts.join(" AND ")}` + (hiddenGoal ? " — but this instrument only runs on the original samples; you must INFER it for your syntheses." : "");
 }
 
 function round(x, d = 3) {

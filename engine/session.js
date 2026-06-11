@@ -83,6 +83,8 @@ export class GameSession {
     if (!s) return { ok: false, message: `no substance ${subId}` };
     const m = this.world.measures.find((x) => x.id === measureId);
     if (!m) return { ok: false, message: `no measure ${measureId}` };
+    if (m.hidden && s.origin.kind !== "genesis" && !(measureId in s.known))
+      return { ok: false, message: `${this.measureLabel(measureId)} can't be run on synthesized samples — infer it from the others` };
     const cached = measureId in s.known;
     const value = cached ? s.known[measureId] : this.world.kernel.measure(this.world, s.vec, measureId);
     if (!cached) { s.known[measureId] = value; this._charge(COSTS.measure); }

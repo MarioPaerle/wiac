@@ -1,7 +1,7 @@
 // WIAC web lens — thin client over the same engine the CLI uses.
 import { createWorld, GameSession, decodeShareCode, actions as A, listThemes, DIFFICULTY_KEYS, DIFFICULTIES } from "../engine/index.js";
 import { computeBaselines, scoreRun } from "../bots/baselines.js";
-import { collectMatrix, standardize, correlationMatrix, kmeans, fitQuad, quadRootsInUnit } from "../shared/analysis.js";
+import { collectMatrix, standardize, correlationMatrix, kmeans, interpAt, crossingsFromSamples } from "../shared/analysis.js";
 import { scatterSVG, heatmapSVG, trendSVG } from "./plots.js";
 
 const GLYPHS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
@@ -135,18 +135,17 @@ function renderViz(snap) {
         else if (s.origin.a === b && s.origin.b === a) pts.push({ lambda: 1 - s.origin.lambda, value: s.measurements[m] });
       }
     }
-    const curve = fitQuad(pts.map((p) => ({ x: p.lambda, y: p.value })));
     const goal = snap.goal.constraints.find((c) => c.measureId === m)?.target ?? null;
-    if (a && b && pts.length < 3) hint = `<div class="flag">The response is NON-LINEAR — sample more points: blend ${a},${b} at a few λ and measure to fit the curve.</div>`;
-    else if (curve && goal != null) {
-      const roots = quadRootsInUnit(curve.A2, curve.A1, curve.A0, goal);
+    if (a && b && pts.length < 3) hint = `<div class="flag">The response shape is HIDDEN (and may not be monotone) — sample more: blend ${a},${b} at a few λ and measure.</div>`;
+    else if (pts.length >= 3 && goal != null) {
+      const roots = crossingsFromSamples(pts, goal);
       hint = roots.length
-        ? `<div class="flag" style="color:var(--good)">✓ fitted curve crosses the goal at λ≈${roots.map((r) => r.toFixed(2)).join(" and ")}. Set λ and blend ${a},${b}.</div>`
-        : `<div class="flag">curve doesn't reach the goal on this path — try another pair.</div>`;
+        ? `<div class="flag" style="color:var(--good)">✓ curve crosses the goal at λ≈${roots.map((r) => r.toFixed(2)).join(" and ")}. Set λ and blend ${a},${b} (sample nearby to refine).</div>`
+        : `<div class="flag">these samples don't cross the goal — sample between them or try another pair.</div>`;
     }
     const subSel = (cur, attr) => `<select data-trend="${attr}"><option value="">—</option>` + snap.substances.map((s) => `<option value="${s.id}" ${cur === s.id ? "selected" : ""}>${s.id}</option>`).join("") + `</select>`;
     body = `<div class="controls-row">a ${subSel(a, "a")} b ${subSel(b, "b")} on ${msel(m, "tm")}</div>` +
-      trendSVG(pts, { goal, curve, ylabel: mlabel(snap, m), endpoints: [a, b] }) + hint;
+      trendSVG(pts, { goal, interp: (t) => interpAt(pts, t), ylabel: mlabel(snap, m), endpoints: [a, b] }) + hint;
   }
   $("viz").innerHTML = `<div class="tabs">${tabBtn("scatter", "Scatter")}${tabBtn("corr", "Correlation")}${tabBtn("trend", "Trend / bracket")}</div>${body}`;
 }

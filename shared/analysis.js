@@ -102,6 +102,32 @@ export function fitQuad(points) {
   return sol ? { A2: sol[0], A1: sol[1], A0: sol[2] } : null;
 }
 
+// SHAPE-AGNOSTIC: piecewise-linear interpolation through measured points (sorted by λ).
+// Returns the value at λ=t (clamped to the sampled range).
+export function interpAt(points, t) {
+  const pts = [...points].sort((a, b) => a.lambda - b.lambda);
+  if (pts.length === 0) return null;
+  if (t <= pts[0].lambda) return pts[0].value;
+  if (t >= pts[pts.length - 1].lambda) return pts[pts.length - 1].value;
+  for (let i = 1; i < pts.length; i++) if (t <= pts[i].lambda) {
+    const f = (t - pts[i - 1].lambda) / (pts[i].lambda - pts[i - 1].lambda || 1);
+    return pts[i - 1].value + f * (pts[i].value - pts[i - 1].value);
+  }
+  return pts[pts.length - 1].value;
+}
+
+// λ's where the piecewise-linear curve through the samples crosses `target` (shape-agnostic).
+export function crossingsFromSamples(points, target) {
+  const pts = [...points].sort((a, b) => a.lambda - b.lambda);
+  const out = [];
+  for (let i = 1; i < pts.length; i++) {
+    const d0 = pts[i - 1].value - target, d1 = pts[i].value - target;
+    if (d0 === 0) out.push(pts[i - 1].lambda);
+    else if (d0 * d1 < 0) out.push(pts[i - 1].lambda + (pts[i].lambda - pts[i - 1].lambda) * (d0 / (d0 - d1)));
+  }
+  return out;
+}
+
 // roots of A2·x²+A1·x+(A0−T) within [0,1]
 export function quadRootsInUnit(A2, A1, A0, T) {
   const c0 = A0 - T, out = [];

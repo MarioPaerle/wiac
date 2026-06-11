@@ -62,11 +62,11 @@ function heatColor(r) {
   return `rgb(${red},50,${blue})`;
 }
 
-// points: real measured [{lambda,value}]; curve: fitted {A2,A1,A0} drawn smoothly across [0,1].
-export function trendSVG(points, { w = 460, h = 240, goal = null, curve = null, ylabel = "value", endpoints = [] } = {}) {
-  if (points.length === 0 && !curve) return `<div class="empty">Pick two substances, then mix them at a few λ and measure — the response is curved, so sample it.</div>`;
+// points: real measured [{lambda,value}]; interp: fn(t)->value (shape-agnostic polyline).
+export function trendSVG(points, { w = 460, h = 240, goal = null, interp = null, ylabel = "value", endpoints = [] } = {}) {
+  if (points.length === 0) return `<div class="empty">Pick two substances, then blend them at a few λ and measure — the response shape is hidden, so sample it.</div>`;
   const pad = 40;
-  const curveYs = curve ? Array.from({ length: 60 }, (_, i) => { const l = i / 59; return curve.A2 * l * l + curve.A1 * l + curve.A0; }) : [];
+  const curveYs = interp && points.length >= 2 ? Array.from({ length: 60 }, (_, i) => interp(i / 59)) : [];
   const ys = points.map((s) => s.value).concat(curveYs, goal != null ? [goal] : []);
   let ymin = Math.min(...ys), ymax = Math.max(...ys);
   const e = (ymax - ymin || 1) * 0.12; ymin -= e; ymax += e;
@@ -75,9 +75,9 @@ export function trendSVG(points, { w = 460, h = 240, goal = null, curve = null, 
   let s = `<svg viewBox="0 0 ${w} ${h}" class="plot">`;
   s += `<line x1="${pad}" y1="${h - pad}" x2="${w - 8}" y2="${h - pad}" class="axis"/>`;
   if (goal != null) s += `<line x1="${pad}" y1="${Y(goal)}" x2="${w - 8}" y2="${Y(goal)}" class="goal"/>`;
-  if (curve) {
+  if (curveYs.length) {
     const path = curveYs.map((v, i) => `${i ? "L" : "M"}${X(i / 59).toFixed(1)},${Y(v).toFixed(1)}`).join(" ");
-    s += `<path d="${path}" fill="none" stroke="#8bd" stroke-width="2" stroke-dasharray="${points.length >= 3 ? "0" : "4 4"}"/>`;
+    s += `<path d="${path}" fill="none" stroke="#8bd" stroke-width="2"/>`;
   }
   for (const p of points) s += `<circle cx="${X(p.lambda).toFixed(1)}" cy="${Y(p.value).toFixed(1)}" r="5" fill="#e85"><title>λ=${p.lambda.toFixed(2)} → ${p.value.toFixed(3)}</title></circle>`;
   s += `<text x="${pad}" y="${h - 8}" class="tick">λ=0 (${endpoints[0] ?? "a"})</text>`;

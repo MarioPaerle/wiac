@@ -1,62 +1,62 @@
-// The "researcher" bot for the nonlinear world. Single constraint:
+// The "researcher" bot — SHAPE-AGNOSTIC (works for any smooth response, quad or resonance bump).
+// Single constraint:
 //   - measure the base substances on the goal instrument
-//   - pick a promising pair, sample its blend at λ=0.5 → fit the quadratic ℓ(λ) exactly
-//     from 3 points (endpoints are free), solve ℓ(λ)=target for a root in [0,1], blend there.
-// This MODELS the curve instead of bisecting (which fails on a non-monotone response).
-// It drives a real GameSession, so its XP is comparable to a human's.
+//   - for a promising pair, sample its blend on a coarse λ grid → find an interval that brackets
+//     the target (works even when the curve humps through the target with both endpoints on one side)
+//   - refine inside that monotone segment until within tolerance.
+// This MODELS the curve (samples its shape) instead of assuming a form. Works in observed space
+// (readout is monotone, so straddling in observed ⇔ straddling in the linear core).
 
 import { GameSession } from "../engine/index.js";
 import * as A from "../engine/actions.js";
-import { invertReadout } from "../engine/readout.js";
 
-const PROBE_CAP = 40;
+const GRID = [0.2, 0.4, 0.6, 0.8]; // interior samples (endpoints come free from base measurements)
+const PROBE_CAP = 30;
+const REFINE_STEPS = 8;
 
 export function smartSolve(world, { budget = 100000 } = {}) {
   const c = world.goal.constraints[0];
   const session = new GameSession(world, { budget });
-  const m = c.measureId;
-  const meas = world.measures.find((x) => x.id === m);
-  const targetLin = invertReadout(meas.readout, c.target);
+  const m = c.measureId, target = c.target, eps = c.eps;
 
   const bases = session.substances.map((s) => s.id);
-  const linOf = {};
-  for (const id of bases) linOf[id] = invReadoutVal(meas, session.apply(A.measure(id, m)).value);
+  const baseVal = {};
+  for (const id of bases) baseVal[id] = session.apply(A.measure(id, m)).value;
 
-  // order pairs: straddling the target first (likeliest to cross), then by proximity
+  // order pairs: straddling endpoints first (cheapest), then by how close an endpoint gets
   const pairs = [];
   for (let i = 0; i < bases.length; i++)
     for (let j = i + 1; j < bases.length; j++) {
-      const lo = Math.min(linOf[bases[i]], linOf[bases[j]]), hi = Math.max(linOf[bases[i]], linOf[bases[j]]);
-      const straddle = targetLin >= lo && targetLin <= hi;
-      const gap = straddle ? 0 : Math.min(Math.abs(targetLin - lo), Math.abs(targetLin - hi));
-      pairs.push({ a: bases[i], b: bases[j], straddle, gap });
+      const lo = Math.min(baseVal[bases[i]], baseVal[bases[j]]), hi = Math.max(baseVal[bases[i]], baseVal[bases[j]]);
+      const straddle = target >= lo && target <= hi;
+      pairs.push({ a: bases[i], b: bases[j], straddle, gap: straddle ? 0 : Math.min(Math.abs(target - lo), Math.abs(target - hi)) });
     }
   pairs.sort((p, q) => (p.straddle === q.straddle ? p.gap - q.gap : p.straddle ? -1 : 1));
 
-  for (const { a, b } of pairs.slice(0, PROBE_CAP)) {
-    const y0 = linOf[a], y1 = linOf[b];
-    const mid = session.apply(A.mix(a, b, 0.5)).newSubstanceId;
-    const yh = invReadoutVal(meas, session.apply(A.measure(mid, m)).value);
-    // fit ℓ(λ)=A2λ²+A1λ+A0 from (0,y0),(0.5,yh),(1,y1)
-    const A2 = 2 * (y1 + y0 - 2 * yh), A0 = y0, A1 = (y1 - y0) - A2;
-    for (const root of rootsInUnit(A2, A1, A0, targetLin)) {
-      const final = session.apply(A.mix(a, b, root)).newSubstanceId;
-      const got = session.apply(A.measure(final, m)).value;
-      if (Math.abs(got - c.target) <= c.eps) { session.apply(A.submit(final)); return { solved: true, experiments: session.budget.spent, finalId: final }; }
+  const refine = (a, b, lo, hi, vlo) => {
+    for (let step = 0; step < REFINE_STEPS; step++) {
+      const mid = (lo + hi) / 2;
+      const id = session.apply(A.mix(a, b, mid)).newSubstanceId;
+      const v = session.apply(A.measure(id, m)).value;
+      if (Math.abs(v - target) <= eps) { session.apply(A.submit(id)); return id; }
+      if ((vlo - target) * (v - target) > 0) { lo = mid; vlo = v; } else hi = mid;
     }
+    return null;
+  };
+
+  for (const { a, b, straddle } of pairs.slice(0, PROBE_CAP)) {
+    // straddling endpoints already bracket the target → refine [0,1] directly (cheap)
+    const intervals = [];
+    if (straddle) intervals.push({ lo: 0, hi: 1, vlo: baseVal[a] });
+    else {
+      // an interior hump may cross the target: sample a coarse grid to find a bracket
+      const pts = [{ t: 0, v: baseVal[a] }, { t: 1, v: baseVal[b] }];
+      for (const t of GRID) { const id = session.apply(A.mix(a, b, t)).newSubstanceId; pts.push({ t, v: session.apply(A.measure(id, m)).value }); }
+      pts.sort((p, q) => p.t - q.t);
+      for (let k = 1; k < pts.length; k++) if ((pts[k - 1].v - target) * (pts[k].v - target) <= 0) intervals.push({ lo: pts[k - 1].t, hi: pts[k].t, vlo: pts[k - 1].v });
+    }
+    for (const iv of intervals) { const id = refine(a, b, iv.lo, iv.hi, iv.vlo); if (id) return { solved: true, experiments: session.budget.spent, finalId: id }; }
     if (session.budget.spent > budget) break;
   }
   return { solved: false, experiments: session.budget.spent };
-}
-
-function invReadoutVal(meas, obs) { return invertReadout(meas.readout, obs); }
-
-function rootsInUnit(A2, A1, A0, T) {
-  const c0 = A0 - T, out = [];
-  if (Math.abs(A2) < 1e-9) { if (Math.abs(A1) > 1e-12) { const x = -c0 / A1; if (x >= 0 && x <= 1) out.push(x); } return out; }
-  const disc = A1 * A1 - 4 * A2 * c0;
-  if (disc < 0) return out;
-  const sq = Math.sqrt(disc);
-  for (const x of [(-A1 + sq) / (2 * A2), (-A1 - sq) / (2 * A2)]) if (x >= 0 && x <= 1) out.push(x);
-  return out;
 }

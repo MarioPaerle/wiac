@@ -40,13 +40,16 @@ find structure (free), **mix** substances toward the goal, **submit**. Beat the 
 ## How it works (one paragraph)
 
 A substance is a hidden vector `s = U·c` living in a low-rank subspace (`r ≪ n`) — that low rank
-*is* the discoverable structure. Measurements are **quadratic** in the latent code (with a monotone
-readout), so along a blend path `a→b` the measured value traces a **curve** — often non-monotone.
-That means you **cannot** just bisect: you sample a few points, *fit the curve*, and solve for the
-mix ratio that hits the target. The goal is generated to sit on a real blend path and to be crossed
-by several base pairs, so a curve-fitting "researcher" bot always wins — and certifies, alongside a
-brute-force bot, that every world is winnable with `≪` the blind-search cost. The `trend` tool
-(CLI + web) draws your measured points and the fitted parabola and tells you where it crosses the goal.
+*is* the discoverable structure. Each instrument (measure) has a **hidden response shape** — either
+a smooth quadratic *or* a **resonance bump** (it peaks near a hidden archetype) — so you can't assume
+a fixed form: you must *characterize* each instrument by sampling. Along a blend path `a→b` the
+measured value traces a smooth, often **non-monotone** curve (a resonance can arch up through the
+target with *both* endpoints below it), so naive bisection fails: you sample points, see the shape,
+and home in on the mix ratio that hits the target. The goal sits on a real blend path that is
+non-monotone and crossed by several base pairs, so a shape-agnostic "researcher" bot always wins —
+and certifies, alongside a brute-force bot, that every world is winnable with `≪` the blind-search
+cost. The `trend` tool (CLI + web) draws your measured points + the interpolated curve and tells you
+where it crosses the goal.
 
 ## Layout
 

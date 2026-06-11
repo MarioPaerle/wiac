@@ -9,7 +9,7 @@ import { createWorld, GameSession, decodeShareCode, actions as A, listThemes, DI
 import { computeBaselines, scoreRun } from "../bots/baselines.js";
 import * as R from "./render.js";
 import * as P from "./plots.js";
-import { collectMatrix, standardize, correlationMatrix, kmeans, substanceDistance, fitQuad, quadRootsInUnit } from "../shared/analysis.js";
+import { collectMatrix, standardize, correlationMatrix, kmeans, substanceDistance, interpAt, crossingsFromSamples } from "../shared/analysis.js";
 import { saveRun, loadRun, listRuns } from "./storage.js";
 
 // ---- args ----
@@ -148,15 +148,14 @@ function cmdTrend(toks) {
     if (s.origin.a === a && s.origin.b === b) pts.push({ lambda: s.origin.lambda, value: s.measurements[m] });
     else if (s.origin.a === b && s.origin.b === a) pts.push({ lambda: 1 - s.origin.lambda, value: s.measurements[m] });
   }
-  const curve = fitQuad(pts.map((p) => ({ x: p.lambda, y: p.value })));
   const goalLine = snap.goal.constraints.find((c) => c.measureId === m)?.target ?? null;
-  console.log(P.trend(pts, { goalLine, curve, ylabel: measureLabel(m), endpoints: [a, b] }));
+  console.log(P.trend(pts, { goalLine, interp: (t) => interpAt(pts, t), ylabel: measureLabel(m), endpoints: [a, b] }));
   if (pts.length < 3) {
-    console.log(R.c.yellow(`  only ${pts.length} point(s) on this path — the response is NON-LINEAR, so sample more: mix ${a} ${b} 0.5 (then measure) to fit the curve.`));
-  } else if (curve && goalLine != null) {
-    const roots = quadRootsInUnit(curve.A2, curve.A1, curve.A0, goalLine);
-    if (roots.length) console.log(R.c.green(`  fitted curve crosses the goal at λ≈${roots.map((r) => r.toFixed(2)).join(" and ")}.  Try: mix ${a} ${b} ${roots[0].toFixed(2)}`));
-    else console.log(R.c.dim("  the fitted curve does not reach the goal on this path — try another pair."));
+    console.log(R.c.yellow(`  only ${pts.length} point(s) — this instrument's response shape is HIDDEN and may not be monotone. Sample more: mix ${a} ${b} 0.5 (then measure).`));
+  } else if (goalLine != null) {
+    const roots = crossingsFromSamples(pts, goalLine);
+    if (roots.length) console.log(R.c.green(`  curve crosses the goal at λ≈${roots.map((r) => r.toFixed(2)).join(" and ")}.  Try: mix ${a} ${b} ${roots[0].toFixed(2)}  (sample nearby to refine)`));
+    else console.log(R.c.dim("  these samples don't cross the goal — sample between them or try another pair."));
   }
 }
 

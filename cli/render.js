@@ -22,6 +22,31 @@ export function wordmark() {
   return c.cyan(["╦ ╦╦╔═╗╔═╗", "║║║║╠═╣║  ", "╚╩╝╩╩ ╩╚═╝"].join("\n"));
 }
 
+// Big startup logo, Claude-Code style: an ASCII atom + the WIAC block wordmark.
+export function bigLogo() {
+  const atom = [
+    "   ◌   ·   ",
+    "  ╲ ⌢ ⌢ ╱ ",
+    " ◌─( ◉ )─◌",
+    "  ╱ ⌣ ⌣ ╲ ",
+    "   ·   ◌   ",
+  ];
+  const wiac = [
+    "██╗    ██╗██╗ █████╗  ██████╗",
+    "██║    ██║██║██╔══██╗██╔════╝",
+    "██║ █╗ ██║██║███████║██║     ",
+    "██║███╗██║██║██╔══██║██║     ",
+    "╚███╔███╔╝██║██║  ██║╚██████╗",
+    " ╚══╝╚══╝ ╚═╝╚═╝  ╚═╝ ╚═════╝",
+  ];
+  const L = [];
+  for (let i = 0; i < wiac.length; i++) {
+    const a = (atom[i] ?? "          ").padEnd(10);
+    L.push("  " + c.dim(c.cyan(a)) + "  " + c.bold(c.cyan(wiac[i])));
+  }
+  return L.join("\n");
+}
+
 const GLYPHS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
 export function glyphMap(snapshot) {
   const m = new Map();
@@ -39,8 +64,10 @@ export function banner(snapshot) {
 export function briefing(snapshot, baselines) {
   const t = snapshot.theme;
   const L = [];
-  L.push(wordmark());
-  L.push(c.muted(`World In A Context · ${t.label} · ${snapshot.difficulty} · seed ${c.cyan(snapshot.shareCode)}`));
+  L.push("");
+  L.push(bigLogo());
+  L.push("");
+  L.push("  " + c.muted(`World In A Context · ${t.label} · ${snapshot.difficulty} · seed ${c.cyan(snapshot.shareCode)}`));
   L.push("");
   L.push(c.dim(`  ${t.flavor}`));
   L.push("");

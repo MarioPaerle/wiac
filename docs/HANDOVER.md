@@ -74,7 +74,13 @@ Cost model (`COSTS`): measure 1 (cheap), synth 3 (expensive), wrong-submit 4.
 - v0.3 varied hidden shapes (quad + resonance bump) — characterize the instrument.
 - v0.4 cheap-measure/expensive-synth economics + hidden instruments (hard) + satur shape + numpy console.
 - v0.5 stronger nonlinearity control (linScale, higher minNonlinearity, goals avoid quad) +
-  startKnown prior data + tighter budgets + blind-agent playtest harness.
+  startKnown prior data + blind-agent playtest harness (`tools/agent-play.js`, supports `--code`).
+- v0.6 FOUR tiers (tutorial·basic·normal·hard): `DIFFICULTY_KEYS` is append-only (basic appended last
+  so old share codes survive); `DIFFICULTY_ORDER` is the easy→hard display order — UIs use ORDER.
+  Modern-retro "phosphor" UI (amber 70-20-10, from 2 style-research subagents): CLI palette+wordmark
+  in `cli/render.js`, web faceplate panels in `web/style.css`. Inline-rename substances (web) + `name`
+  (CLI); a Lab-log/history panel (web) + `history` command (CLI); per-chart "how-to-read" captions.
+  Console gained `design()`, `loocv()`, np.add/sub/mul/div/ones/zeros/column_stack.
 
 ## Playtesting with a blind agent (Mario wants this loop)
 Spawn a `general-purpose` subagent, forbid it from reading source, give it ONLY

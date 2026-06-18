@@ -15,8 +15,12 @@
 // what the snapshot tells you. Do NOT read engine/ or bots/ source; that would not be a fair test.
 
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { createWorld, buildWorld, GameSession, decodeShareCode, actions as A } from "../engine/index.js";
 import { runConsole } from "../shared/console.js";
+
+const DEFAULT_SAVE = join(tmpdir(), "wiac-agent-session.json"); // cross-platform (no hardcoded /tmp)
 
 const RULES = `WIAC — you are a scientist exploring an UNKNOWN world.
 - Substances have hidden compositions; you only ever see the numbers your instruments report.
@@ -36,7 +40,7 @@ const RULES = `WIAC — you are a scientist exploring an UNKNOWN world.
 - Some substances start already characterized (tag "known"). Think with cheap measurements; synthesize sparingly.`;
 
 function parse(argv) {
-  const a = { cmd: argv[0], save: "/tmp/wiac-agent-session.json", seed: 12345, difficulty: "normal", theme: "alchemy", code: null, pos: [] };
+  const a = { cmd: argv[0], save: DEFAULT_SAVE, seed: 12345, difficulty: "normal", theme: "alchemy", code: null, pos: [] };
   for (let i = 1; i < argv.length; i++) {
     const k = argv[i];
     if (k === "--save") a.save = argv[++i];

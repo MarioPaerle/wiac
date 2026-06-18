@@ -79,14 +79,17 @@ process, reads/writes a JSON save file, and prints a JSON snapshot.
 ### Play a world — `tools/agent-play.js`
 
 ```bash
-node tools/agent-play.js new --code fcfd22 --save /tmp/run.json   # or: --seed N -d hard -t physics
-node tools/agent-play.js measure s0 m1   --save /tmp/run.json     # "all" for every instrument
-node tools/agent-play.js mix s0 s1 0.5   --save /tmp/run.json
-node tools/agent-play.js cook s0         --save /tmp/run.json     # or: refine s0
-node tools/agent-play.js calc "np.corr(col('m0'), col('m1'))" --save /tmp/run.json
-node tools/agent-play.js submit x3       --save /tmp/run.json
+node tools/agent-play.js new --code fcfd22        # or: --seed N -d hard -t physics
+node tools/agent-play.js measure s0 m1            # "all" for every instrument
+node tools/agent-play.js mix s0 s1 0.5
+node tools/agent-play.js cook s0                  # or: refine s0
+node tools/agent-play.js calc "np.corr(col('m0'), col('m1'))"
+node tools/agent-play.js submit x3
 node tools/agent-play.js help
 ```
+
+The session state is kept in a save file; `--save <path>` is optional and defaults to a file in the
+OS temp dir, so the same commands work on macOS, Linux, and Windows.
 
 Every command prints `{ ok, result?, value?, snapshot }`. The snapshot is exactly what a human
 sees — instrument readings, provenance, goal, budget — and **never** the hidden vectors. The agent
@@ -140,6 +143,37 @@ It's deterministic from `spec.seed`, reproducible/replayable, and `buildWorld(sp
 `engine/index.js` (also `new WorldBuilder().family(...).instrument(...).goal(...).build()`). The
 build runs the same solvability + quality checks, so the author iterates the spec until the world is
 solvable and interesting.
+
+#### Authoring — current limits & where it can go
+
+This is a deliberate v1: enough vocabulary to declare real structure, with every authored world
+validated. It can be pushed much further:
+
+- **Goal expressiveness.** Today a goal just *aims at an instrument* and the engine picks a valid
+  (non-linear, reachable) target on it. Next: author the exact target value, "land in family X",
+  multi-instrument goals with trade-offs (`nConstraints` is 1 for now), or goals that require a
+  multi-step synthesis tree rather than a single blend.
+- **Instrument vocabulary.** `axis / bump / satur / analogy / linear` cover a lot, but regime
+  switches/thresholds, ratios, periodic responses, multi-family resonances, and measurement noise
+  would make worlds harder to reverse-engineer (a known anti-brute-force lever — see HANDOVER).
+- **Family geometry.** Centers are placed semi-randomly (with `between` / explicit `at`). A richer
+  layout — desired separations, a similarity graph, hierarchy — would give finer control over the
+  analogies.
+- **Custom operations.** `contract`/`rotate` are random stable maps; letting the author define an
+  operation's *meaning* (e.g. "neutralize → moves toward bases") would make synthesis intentional.
+- **Auto-search.** Right now an LLM hand-iterates the spec against the quality report; a small
+  optimizer could auto-tune a spec toward a target difficulty/interestingness.
+- **Solvability of authored worlds is bot-certified (empirical), not proven** — the random tiers
+  have the same guarantee in practice; treat `agent-gen`'s report as the contract.
+
+PRs welcome on any of these; `engine/authoring.js` is small and the goal picker (`selectGoal`) is
+shared with the random generator.
+
+## Platform
+
+Pure Node (≥ 18), ESM, no native dependencies and no build step — runs on macOS, Linux, and
+Windows. On Windows use **Windows Terminal** (or VS Code's terminal) for the CLI so the colors and
+box-drawing render; everything else (web UI, agent tools, tests) is platform-agnostic.
 
 ### Programmatic API (Node)
 

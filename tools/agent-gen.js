@@ -54,8 +54,8 @@ try {
 
   const b = computeBaselines(world);
   const playCmd = args.spec
-    ? `node tools/agent-play.js new --spec '${JSON.stringify(args.spec)}' --save /tmp/wiac-gen.json`
-    : `node tools/agent-play.js new --seed ${world.meta.seed} -d ${args.difficulty} -t ${args.theme}${args.params ? ` --params '${JSON.stringify(args.params)}'` : ""} --save /tmp/wiac-gen.json`;
+    ? `node tools/agent-play.js new --spec '${JSON.stringify(args.spec)}'`
+    : `node tools/agent-play.js new --seed ${world.meta.seed} -d ${args.difficulty} -t ${args.theme}${args.params ? ` --params '${JSON.stringify(args.params)}'` : ""}`;
 
   report = {
     ok: b.smartSolved,

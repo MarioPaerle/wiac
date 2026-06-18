@@ -44,6 +44,7 @@ function parse(argv) {
     else if (k === "--difficulty" || k === "-d") a.difficulty = argv[++i];
     else if (k === "--theme" || k === "-t") a.theme = argv[++i];
     else if (k === "--code" || k === "-c") a.code = argv[++i];
+    else if (k === "--params") a.params = argv[++i];
     else a.pos.push(k);
   }
   return a;
@@ -64,6 +65,7 @@ try {
 
   if (args.cmd === "new") {
     const opts = args.code ? decodeShareCode(args.code) : { seed: args.seed, difficulty: args.difficulty, theme: args.theme };
+    if (args.params) opts.params = JSON.parse(args.params); // agent-authored generation overrides
     const world = createWorld(opts);
     const session = new GameSession(world);
     save(session, {});

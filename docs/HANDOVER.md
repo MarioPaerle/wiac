@@ -53,7 +53,7 @@ shared/  analysis.js (corr, kmeans, interp, crossings) · console.js (numpy-styl
 cli/     main.js (REPL) · render.js (ASCII) · plots.js (ASCII charts) · storage.js
 web/     index.html · app.js · plots.js (SVG) · render? (inline) · style.css
 bots/    smart-solver (shape-agnostic sample→bracket→refine) · brute-force · baselines · validate-world
-tools/   agent-play.js (black-box JSON harness for blind playtests)
+tools/   agent-play.js (black-box JSON play harness) · agent-gen.js (agentic generation + eval)
 docs/    CONCEPT.md · PROTOTYPE_PLAN.md · HANDOVER.md(this)
 ```
 

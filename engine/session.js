@@ -185,6 +185,8 @@ export class GameSession {
     return {
       version: 1,
       shareCode: this.world.shareCode,
+      // exact generation recipe (carries any agent params override, which share codes don't encode)
+      gen: { seed: this.world.meta.seed, difficulty: this.world.meta.difficulty, theme: this.world.meta.theme, params: this.world.paramsOverride || null },
       budget: this.budget,
       status: this.status,
       strikes: this.strikes,
@@ -196,8 +198,9 @@ export class GameSession {
   }
 
   static restore(runState) {
-    const { seed, difficulty, theme } = decodeShareCode(runState.shareCode);
-    const world = createWorld({ seed, difficulty, theme });
+    // prefer the exact generation recipe (handles agent params overrides); fall back to share code
+    const g = runState.gen || decodeShareCode(runState.shareCode);
+    const world = createWorld({ seed: g.seed, difficulty: g.difficulty, theme: g.theme, params: g.params || null });
     const session = new GameSession(world, { budget: runState.budget.max });
     // rebuild derived substances by replaying provenance in creation order
     const baseById = new Map(session.substances.map((s) => [s.id, s]));

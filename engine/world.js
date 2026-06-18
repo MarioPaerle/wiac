@@ -22,10 +22,15 @@ function validate(gen, params) {
   return true;
 }
 
-export function createWorld({ seed, difficulty = "normal", theme = "alchemy", kernel = linearKernel } = {}) {
+// Generate a world. `params` (optional) shallow-overrides the difficulty preset — this is the
+// hook an agent/LLM uses to author worlds richer than plain random (tune curvature, shapes,
+// hiddenCount, sizes, the goal-acceptance floor, …). See tools/agent-gen.js + README › "agentic
+// generation". The override is recorded so the exact world can be reconstructed/replayed.
+export function createWorld({ seed, difficulty = "normal", theme = "alchemy", kernel = linearKernel, params: overrides = null } = {}) {
   validateKernel(kernel);
-  const params = DIFFICULTIES[difficulty];
-  if (!params) throw new Error(`unknown difficulty "${difficulty}"`);
+  const base = DIFFICULTIES[difficulty];
+  if (!base) throw new Error(`unknown difficulty "${difficulty}"`);
+  const params = { ...base, ...(overrides || {}) };
   getTheme(theme); // throws on unknown theme early
 
   const MAX_TRIES = 40;
@@ -37,6 +42,7 @@ export function createWorld({ seed, difficulty = "normal", theme = "alchemy", ke
       return {
         meta: { seed: s, requestedSeed: seed >>> 0, difficulty, theme, n: params.n, r: params.r, kernelId: kernel.id },
         shareCode: encodeShareCode({ seed: s, difficulty, theme }),
+        paramsOverride: overrides || null,
         params,
         theme: getTheme(theme),
         kernel,

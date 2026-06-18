@@ -15,7 +15,7 @@
 // what the snapshot tells you. Do NOT read engine/ or bots/ source; that would not be a fair test.
 
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
-import { createWorld, GameSession, decodeShareCode, actions as A } from "../engine/index.js";
+import { createWorld, buildWorld, GameSession, decodeShareCode, actions as A } from "../engine/index.js";
 import { runConsole } from "../shared/console.js";
 
 const RULES = `WIAC — you are a scientist exploring an UNKNOWN world.
@@ -45,6 +45,7 @@ function parse(argv) {
     else if (k === "--theme" || k === "-t") a.theme = argv[++i];
     else if (k === "--code" || k === "-c") a.code = argv[++i];
     else if (k === "--params") a.params = argv[++i];
+    else if (k === "--spec") a.spec = argv[++i];
     else a.pos.push(k);
   }
   return a;
@@ -64,9 +65,15 @@ try {
   if (args.cmd === "help" || !args.cmd) { process.stdout.write(RULES + "\n"); process.exit(0); }
 
   if (args.cmd === "new") {
-    const opts = args.code ? decodeShareCode(args.code) : { seed: args.seed, difficulty: args.difficulty, theme: args.theme };
-    if (args.params) opts.params = JSON.parse(args.params); // agent-authored generation overrides
-    const world = createWorld(opts);
+    let world;
+    if (args.spec) { // hand-authored world (inline JSON or a .json path)
+      const spec = JSON.parse(args.spec.trim().startsWith("{") ? args.spec : readFileSync(args.spec, "utf8"));
+      world = buildWorld(spec);
+    } else {
+      const opts = args.code ? decodeShareCode(args.code) : { seed: args.seed, difficulty: args.difficulty, theme: args.theme };
+      if (args.params) opts.params = JSON.parse(args.params); // agent-authored generation overrides
+      world = createWorld(opts);
+    }
     const session = new GameSession(world);
     save(session, {});
     process.stdout.write(RULES + "\n\n");

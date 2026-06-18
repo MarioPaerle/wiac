@@ -14,17 +14,21 @@
 // (Unlike random, the override lets an LLM aim the generator; the override is recorded so the
 //  world is reproducible — pass the same --params to agent-play.)
 
-import { createWorld } from "../engine/index.js";
+import { readFileSync } from "node:fs";
+import { createWorld, buildWorld } from "../engine/index.js";
 import { computeBaselines } from "../bots/baselines.js";
 
+// --spec accepts inline JSON or a path to a .json spec (hand-authored world). See examples/world.spec.json.
+function readSpec(s) { return JSON.parse(s.trim().startsWith("{") ? s : readFileSync(s, "utf8")); }
 function parse(argv) {
-  const a = { seed: 1, difficulty: "normal", theme: "alchemy", params: null };
+  const a = { seed: 1, difficulty: "normal", theme: "alchemy", params: null, spec: null };
   for (let i = 0; i < argv.length; i++) {
     const k = argv[i];
     if (k === "--seed") a.seed = +argv[++i];
     else if (k === "--difficulty" || k === "-d") a.difficulty = argv[++i];
     else if (k === "--theme" || k === "-t") a.theme = argv[++i];
     else if (k === "--params") a.params = JSON.parse(argv[++i]);
+    else if (k === "--spec") a.spec = readSpec(argv[++i]);
   }
   return a;
 }
@@ -34,8 +38,8 @@ const lerp = (A, B, t) => A.map((x, i) => (1 - t) * x + t * B[i]);
 const args = parse(process.argv.slice(2));
 let report;
 try {
-  const world = createWorld({ seed: args.seed, difficulty: args.difficulty, theme: args.theme, params: args.params });
-  const label = (id) => world.theme.measures[world.measures.findIndex((m) => m.id === id)] ?? id;
+  const world = args.spec ? buildWorld(args.spec) : createWorld({ seed: args.seed, difficulty: args.difficulty, theme: args.theme, params: args.params });
+  const label = (id) => { const m = world.measures.find((x) => x.id === id); return m?.label ?? world.theme.measures[world.measures.indexOf(m)] ?? id; };
 
   // goal-path nonlinearity: deviation of the goal curve from the straight endpoint line / its range
   const wit = world.goal.witness;
@@ -49,11 +53,13 @@ try {
   const goalNonlinearity = +(dev / ((hi - lo) || 1)).toFixed(3);
 
   const b = computeBaselines(world);
-  const playParams = args.params ? ` --params '${JSON.stringify(args.params)}'` : "";
+  const playCmd = args.spec
+    ? `node tools/agent-play.js new --spec '${JSON.stringify(args.spec)}' --save /tmp/wiac-gen.json`
+    : `node tools/agent-play.js new --seed ${world.meta.seed} -d ${args.difficulty} -t ${args.theme}${args.params ? ` --params '${JSON.stringify(args.params)}'` : ""} --save /tmp/wiac-gen.json`;
 
   report = {
     ok: b.smartSolved,
-    meta: { seed: world.meta.seed, difficulty: args.difficulty, theme: args.theme, n: world.meta.n, r: world.meta.r, shareCode: world.shareCode },
+    meta: { seed: world.meta.seed, difficulty: world.meta.difficulty, theme: world.meta.theme, n: world.meta.n, r: world.meta.r, shareCode: world.shareCode, authored: !!world.meta.authored },
     world: {
       substances: world.substances.length,
       measures: world.measures.map((m) => ({ id: m.id, label: label(m.id), shape: m.shape, hidden: !!m.hidden })),
@@ -68,7 +74,7 @@ try {
       playability: +b.playability.toFixed(2), // brute/researcher — higher ⇒ rewards cleverness more
       thetaMin: b.thetaMin,
     },
-    playCommand: `node tools/agent-play.js new --seed ${world.meta.seed} -d ${args.difficulty} -t ${args.theme}${playParams} --save /tmp/wiac-gen.json`,
+    playCommand: playCmd,
   };
 } catch (e) {
   report = { ok: false, error: e.message };

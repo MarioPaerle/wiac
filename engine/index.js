@@ -1,6 +1,7 @@
 // Public engine API — the ONLY module UIs and bots import.
 
 export { createWorld } from "./world.js";
+export { buildWorld, WorldBuilder } from "./authoring.js";
 export { GameSession } from "./session.js";
 export { encodeShareCode, decodeShareCode } from "./seedcode.js";
 export { DIFFICULTIES, DIFFICULTY_KEYS, DIFFICULTY_ORDER, COSTS } from "./difficulty.js";

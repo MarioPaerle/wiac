@@ -22,6 +22,7 @@ function lin(meas, c) {
   const base = meas.b + dotv(meas.a, c);
   if (meas.shape === "bump") return base + meas.amp * Math.exp(-sumsq(c.map((x, i) => x - meas.center[i])) * meas.invSig2);
   if (meas.shape === "satur") return base + meas.amp * Math.tanh(meas.k * dotv(meas.u, c));
+  if (meas.shape === "linear") return base; // a·c + b (used by hand-authored axes / analogies)
   return base + 0.5 * quadForm(meas.H, c); // quad
 }
 
@@ -47,6 +48,35 @@ function nonlinearity(samples) {
   return maxDev / ((hi - lo) || 1);
 }
 function crossesTarget(samples, T) { for (let k = 1; k < samples.length; k++) if ((samples[k - 1].y - T) * (samples[k].y - T) <= 0) return true; return false; }
+
+// Pick a valid goal: a target on a base→base blend path that is non-linear enough (defeats mental
+// interpolation), crossed by ≥3 base pairs (reachable), and not already met by a base substance.
+// Shared by random generation AND hand-authoring. `restrictToId` limits the goal to one instrument.
+export function selectGoal({ Ucols, baseCodes, substances, measures, rng, minNonlinearity = 0, epsFraction = 0.05, goalOnHidden = false, restrictToId = null }) {
+  const kBase = baseCodes.length;
+  const obs = (c, m) => applyReadout(m.readout, lin(m, c));
+  const rangeOf = (m) => { const v = baseCodes.map((c) => obs(c, m)); return Math.max(...v) - Math.min(...v); };
+  let goalMeasures = measures;
+  if (restrictToId) goalMeasures = measures.filter((m) => m.id === restrictToId);
+  else { const pool = goalOnHidden ? measures.filter((m) => m.hidden) : measures; const rich = pool.filter((m) => m.shape !== "quad"); goalMeasures = rich.length ? rich : pool; }
+  if (!goalMeasures.length) return { constraints: [], witness: null, _failed: true };
+  for (let attempt = 0; attempt < 600; attempt++) {
+    const i = rng.int(kBase); let j = rng.int(kBase); if (j === i) j = (j + 1) % kBase;
+    const lamStar = rng.range(0.25, 0.75);
+    const cStar = lerp(baseCodes[i], baseCodes[j], lamStar);
+    const m = rng.pick(goalMeasures);
+    const targetLin = lin(m, cStar);
+    const targetObs = applyReadout(m.readout, targetLin);
+    const eps = epsFraction * (rangeOf(m) || 1);
+    if (nonlinearity(sampleLin(m, baseCodes[i], baseCodes[j])) < minNonlinearity) continue;
+    if (!crossesTarget(sampleLin(m, baseCodes[i], baseCodes[j], 6), targetLin)) continue;
+    let crossings = 0;
+    for (let p = 0; p < kBase; p++) for (let q = p + 1; q < kBase; q++) if (crossesTarget(sampleLin(m, baseCodes[p], baseCodes[q], 6), targetLin)) crossings++;
+    const trivial = baseCodes.some((c) => Math.abs(obs(c, m) - targetObs) <= eps);
+    if (crossings >= 3 && !trivial) return { constraints: [{ measureId: m.id, target: targetObs, eps, span: rangeOf(m), hidden: m.hidden }], witness: { baseIds: [substances[i].id, substances[j].id], lambda: lamStar, shape: m.shape, starVec: fromLatent(Ucols, cStar) } };
+  }
+  return { constraints: [], witness: null, _failed: true };
+}
 
 export const linearKernel = {
   id: "smooth",
@@ -92,36 +122,8 @@ export const linearKernel = {
     }
     if (params.ops.includes("refine")) ops.push({ id: "refine", kind: "affineLatent", arity: 1, latent: { A: randomOrthogonal(r, rng), b: new Array(r).fill(0) } });
 
-    const world = { n, r, Ucols, centers, mu, substances, measures, ops };
-    const obs = (c, m) => applyReadout(m.readout, lin(m, c));
-    const rangeOf = (m) => { const v = baseCodes.map((c) => obs(c, m)); return Math.max(...v) - Math.min(...v); };
-
-    // candidate goal measures: hidden ones if goalOnHidden; and prefer non-"quad" (richer nonlinearity)
-    const pool = params.goalOnHidden ? measures.filter((m) => m.hidden) : measures;
-    const rich = pool.filter((m) => m.shape !== "quad");
-    const goalMeasures = rich.length ? rich : pool;
-
-    let goal = null;
-    for (let attempt = 0; attempt < 500 && !goal; attempt++) {
-      const i = rng.int(kBase); let j = rng.int(kBase); if (j === i) j = (j + 1) % kBase;
-      const lamStar = rng.range(0.25, 0.75);
-      const cStar = lerp(baseCodes[i], baseCodes[j], lamStar);
-      const m = rng.pick(goalMeasures);
-      const targetLin = lin(m, cStar);
-      const targetObs = applyReadout(m.readout, targetLin);
-      const eps = params.epsFraction * (rangeOf(m) || 1);
-
-      const wpath = sampleLin(m, baseCodes[i], baseCodes[j]);
-      if (nonlinearity(wpath) < params.minNonlinearity) continue;          // must defeat mental interpolation
-      if (!crossesTarget(sampleLin(m, baseCodes[i], baseCodes[j], 6), targetLin)) continue;
-      let crossings = 0;
-      for (let p = 0; p < kBase; p++) for (let q = p + 1; q < kBase; q++) if (crossesTarget(sampleLin(m, baseCodes[p], baseCodes[q], 6), targetLin)) crossings++;
-      const trivial = baseCodes.some((c) => Math.abs(obs(c, m) - targetObs) <= eps);
-      if (crossings >= 3 && !trivial) {
-        goal = { constraints: [{ measureId: m.id, target: targetObs, eps, span: rangeOf(m), hidden: m.hidden }], witness: { baseIds: [substances[i].id, substances[j].id], lambda: lamStar, shape: m.shape, starVec: fromLatent(Ucols, cStar) } };
-      }
-    }
-    if (!goal) goal = { constraints: [], witness: null, _failed: true };
+    const goal = selectGoal({ Ucols, baseCodes, substances, measures, rng,
+      minNonlinearity: params.minNonlinearity, epsFraction: params.epsFraction, goalOnHidden: params.goalOnHidden });
 
     return { substances, measures, ops, goal, hidden: { Ucols, centers, mu, n, r } };
   },

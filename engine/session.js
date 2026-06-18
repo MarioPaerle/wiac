@@ -4,6 +4,7 @@
 import { COSTS } from "./difficulty.js";
 import { buildSnapshot } from "./snapshot.js";
 import { createWorld } from "./world.js";
+import { buildWorld } from "./authoring.js";
 import { decodeShareCode } from "./seedcode.js";
 
 const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -185,8 +186,10 @@ export class GameSession {
     return {
       version: 1,
       shareCode: this.world.shareCode,
-      // exact generation recipe (carries any agent params override, which share codes don't encode)
-      gen: { seed: this.world.meta.seed, difficulty: this.world.meta.difficulty, theme: this.world.meta.theme, params: this.world.paramsOverride || null },
+      // exact generation recipe so the world replays across stateless calls (random OR hand-authored)
+      gen: this.world.meta.authored
+        ? { authored: true, spec: this.world.spec }
+        : { seed: this.world.meta.seed, difficulty: this.world.meta.difficulty, theme: this.world.meta.theme, params: this.world.paramsOverride || null },
       budget: this.budget,
       status: this.status,
       strikes: this.strikes,
@@ -198,9 +201,9 @@ export class GameSession {
   }
 
   static restore(runState) {
-    // prefer the exact generation recipe (handles agent params overrides); fall back to share code
+    // prefer the exact generation recipe (handles params overrides & authored worlds); else share code
     const g = runState.gen || decodeShareCode(runState.shareCode);
-    const world = createWorld({ seed: g.seed, difficulty: g.difficulty, theme: g.theme, params: g.params || null });
+    const world = g.authored ? buildWorld(g.spec) : createWorld({ seed: g.seed, difficulty: g.difficulty, theme: g.theme, params: g.params || null });
     const session = new GameSession(world, { budget: runState.budget.max });
     // rebuild derived substances by replaying provenance in creation order
     const baseById = new Map(session.substances.map((s) => [s.id, s]));

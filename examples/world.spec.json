@@ -1,0 +1,22 @@
+{
+  "seed": 7,
+  "theme": "alchemy",
+  "ambient": 12,
+  "rank": 3,
+  "budget": 140,
+  "startKnown": 2,
+  "families": [
+    { "name": "acids",  "count": 4, "spread": 0.07 },
+    { "name": "bases",  "count": 4, "spread": 0.07 },
+    { "name": "salts",  "count": 3, "spread": 0.10, "between": ["acids", "bases"] }
+  ],
+  "instruments": [
+    { "name": "pH",         "shape": "axis",    "from": "acids", "to": "bases" },
+    { "name": "reactivity", "shape": "bump",    "peaksAt": "salts", "amp": 3.0, "width": 0.5 },
+    { "name": "density",    "shape": "satur",   "k": 1.6 },
+    { "name": "turbidity",  "shape": "analogy", "of": ["pH", "density"], "weights": [0.7, 0.4], "noise": 0.04 },
+    { "name": "spin",       "shape": "bump",    "peaksAt": "acids", "amp": 2.4, "hidden": true }
+  ],
+  "operations": ["blend", "contract"],
+  "goal": { "instrument": "reactivity" }
+}

@@ -6,7 +6,7 @@ export function buildSnapshot(session) {
   const w = session.world;
   const theme = w.theme;
 
-  const measures = w.measures.map((m, i) => ({ id: m.id, label: theme.measures[i] ?? m.id, hidden: !!m.hidden }));
+  const measures = w.measures.map((m, i) => ({ id: m.id, label: m.label ?? theme.measures[i] ?? m.id, hidden: !!m.hidden }));
   const measureLabel = (id) => measures.find((m) => m.id === id)?.label ?? id;
 
   const ops = w.ops.map((o) => ({

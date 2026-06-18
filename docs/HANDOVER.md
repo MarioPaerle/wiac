@@ -53,7 +53,8 @@ shared/  analysis.js (corr, kmeans, interp, crossings) · console.js (numpy-styl
 cli/     main.js (REPL) · render.js (ASCII) · plots.js (ASCII charts) · storage.js
 web/     index.html · app.js · plots.js (SVG) · render? (inline) · style.css
 bots/    smart-solver (shape-agnostic sample→bracket→refine) · brute-force · baselines · validate-world
-tools/   agent-play.js (black-box JSON play harness) · agent-gen.js (agentic generation + eval)
+tools/   agent-play.js (black-box JSON play harness) · agent-gen.js (agentic generation + eval; --params tune random, --spec build authored)
+engine/authoring.js  buildWorld(spec)/WorldBuilder — hand-author worlds (families/instruments incl. "analogy"/goal); reuses kernel.selectGoal(); serialize/restore replay authored worlds via gen.spec
 docs/    CONCEPT.md · PROTOTYPE_PLAN.md · HANDOVER.md(this)
 ```
 

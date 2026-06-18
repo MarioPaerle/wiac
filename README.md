@@ -116,6 +116,31 @@ in the save file, so an agent-authored world is reproducible and directly playab
 The loop for an LLM: propose params → `agent-gen` → read the quality report → adjust → repeat until
 it's solvable, strongly non-linear, and rewards reasoning (high researcher-vs-brute ratio).
 
+### Author a world from scratch (a spec)
+
+Beyond tuning the random generator, an agent can *declare a world's meaning* and get something more
+intentional than random low-rank noise. A spec (JSON — `examples/world.spec.json`) defines:
+
+- **families** — the hidden clusters / analogies (`{name, count, spread}`; `between:[...]` places a
+  family between others, e.g. salts between acids and bases). Substances are drawn from families;
+  families are *hidden* — the player discovers them by clustering.
+- **instruments** — response functions with real semantics:
+  `axis` (a linear gradient `from` one family `to` another, e.g. a pH axis) · `bump` (a resonance
+  that `peaksAt` a family) · `satur` (a saturating channel) · `analogy` (a weighted combination `of`
+  other instruments — deliberately correlated/redundant, so the correlation table reveals it) ·
+  any can be `hidden`.
+- **operations** (`blend`, `contract`, `rotate`) and a **goal** (`{instrument}` to aim it).
+
+```bash
+node tools/agent-gen.js  --spec examples/world.spec.json     # build + quality report
+node tools/agent-play.js new --spec examples/world.spec.json --save /tmp/run.json   # then play it
+```
+
+It's deterministic from `spec.seed`, reproducible/replayable, and `buildWorld(spec)` is exported from
+`engine/index.js` (also `new WorldBuilder().family(...).instrument(...).goal(...).build()`). The
+build runs the same solvability + quality checks, so the author iterates the spec until the world is
+solvable and interesting.
+
 ### Programmatic API (Node)
 
 Everything above is thin wrappers over `engine/index.js`:

@@ -47,7 +47,7 @@ export const DIFFICULTIES = {
     nConstraints: 1,
     epsFraction: 0.06,
     budget: 120,
-    minPlayability: 1.2,
+    minPlayability: 1.0,   // gentle tier: requirement is "always solvable"; brute may be competitive
   },
   normal: {
     label: "Normal",
